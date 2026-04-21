@@ -34,6 +34,9 @@ const config: ExpoConfig = {
     'expo-web-browser',
   ],
   extra: {
+    eas: {
+      projectId: 'e7a7022d-86df-4588-ad13-e8cce39aebbe',
+    },
     convexUrl: process.env.EXPO_PUBLIC_CONVEX_URL,
     clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
     revenueCatIosKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,

@@ -11,7 +11,7 @@ export function Card({ className, style, children, ...rest }: CardProps) {
       className={cn('bg-cream-100 rounded-md p-6', className)}
       style={[
         {
-          shadowColor: '#6B2E4F',
+          shadowColor: '#6D28D9',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.08,
           shadowRadius: 8,

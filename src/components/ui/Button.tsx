@@ -78,7 +78,7 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? '#FBF6EE' : '#6B2E4F'} />
+        <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? '#FAFAFF' : '#6D28D9'} />
       ) : (
         <Text className={cn('font-body', sizeStyle.label, variantStyle.label)}>
           {label}

@@ -12,7 +12,7 @@ const config: ExpoConfig = {
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#FBF6EE',
+    backgroundColor: '#FAFAFF',
   },
   ios: {
     bundleIdentifier: 'com.amoura.app',
@@ -22,7 +22,7 @@ const config: ExpoConfig = {
     package: 'com.amoura.app',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#FBF6EE',
+      backgroundColor: '#FAFAFF',
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,

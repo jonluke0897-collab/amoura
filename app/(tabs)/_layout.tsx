@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Compass, Heart, MessageCircle, User } from 'lucide-react-native';
 
-const PLUM_600 = '#6B2E4F';
-const PLUM_400 = '#9E5A7F';
+const PLUM_600 = '#6D28D9';
+const PLUM_400 = '#A78BFA';
 
 export default function TabsLayout() {
   return (
@@ -12,7 +12,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: PLUM_600,
         tabBarInactiveTintColor: PLUM_400,
         tabBarStyle: {
-          backgroundColor: '#FBF6EE',
+          backgroundColor: '#FAFAFF',
           borderTopColor: 'rgba(107, 46, 79, 0.08)',
         },
         tabBarLabelStyle: { fontFamily: 'Inter', fontSize: 12 },

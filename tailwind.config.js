@@ -1,4 +1,7 @@
 /** @type {import('tailwindcss').Config} */
+// Palette derived from the Amoura logo (violet → magenta → coral-pink gradient).
+// Class names kept from the vision-doc design tokens (plum/cream/rose/peach)
+// to avoid churn across components; hex values updated to match the logo.
 module.exports = {
   content: [
     './app/**/*.{js,jsx,ts,tsx}',
@@ -9,30 +12,30 @@ module.exports = {
     extend: {
       colors: {
         plum: {
-          50: '#F7EDF3',
-          400: '#9E5A7F',
-          500: '#8C3E63',
-          600: '#6B2E4F',
-          700: '#4F1D3A',
-          800: '#3F1F2E',
-          900: '#2C1520',
-          950: '#1A0C14',
+          50: '#F5F3FF',
+          400: '#A78BFA',
+          500: '#7C3AED',
+          600: '#6D28D9',
+          700: '#5B21B6',
+          800: '#4C1D95',
+          900: '#2E1065',
+          950: '#1E0838',
         },
         rose: {
-          200: '#F7D4DC',
-          500: '#E8859A',
-          700: '#B84F67',
+          200: '#FBCFE8',
+          500: '#EC4899',
+          700: '#BE185D',
         },
         peach: {
-          400: '#F4B789',
-          500: '#E89B6A',
+          400: '#FB7185',
+          500: '#F43F5E',
         },
         sage: {
           500: '#8BA888',
         },
         cream: {
-          50: '#FBF6EE',
-          100: '#F5EBDC',
+          50: '#FAFAFF',
+          100: '#F0EBF7',
         },
       },
       fontFamily: {
@@ -58,8 +61,8 @@ module.exports = {
         full: '9999px',
       },
       boxShadow: {
-        card: '0 2px 8px rgba(107, 46, 79, 0.08)',
-        modal: '0 8px 24px rgba(107, 46, 79, 0.12)',
+        card: '0 2px 8px rgba(109, 40, 217, 0.10)',
+        modal: '0 8px 24px rgba(109, 40, 217, 0.14)',
       },
     },
   },

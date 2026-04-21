@@ -6,11 +6,11 @@ const config: ExpoConfig = {
   scheme: 'amoura',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/IconOnly_Transparent_NoBuffer.png',
   userInterfaceStyle: 'light',
   newArchEnabled: true,
   splash: {
-    image: './assets/splash-icon.png',
+    image: './assets/IconOnly_Transparent_NoBuffer.png',
     resizeMode: 'contain',
     backgroundColor: '#FAFAFF',
   },
@@ -21,7 +21,7 @@ const config: ExpoConfig = {
   android: {
     package: 'com.amoura.app',
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './assets/IconOnly_Transparent_NoBuffer.png',
       backgroundColor: '#FAFAFF',
     },
     edgeToEdgeEnabled: true,

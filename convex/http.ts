@@ -46,10 +46,10 @@ http.route({
     switch (event.type) {
       case 'user.created':
       case 'user.updated': {
-        const email = event.data.email_addresses?.[0]?.email_address;
-        if (!email) {
-          return new Response('No email on user', { status: 400 });
-        }
+        // Email is optional at sync time — phone-only signups and Clerk test
+        // payloads both arrive with empty email_addresses. Onboarding requires
+        // users to supply an email before a profile can be created.
+        const email = event.data.email_addresses?.[0]?.email_address ?? '';
         await ctx.runMutation(internal.users.syncFromClerk, {
           clerkId: event.data.id,
           email,

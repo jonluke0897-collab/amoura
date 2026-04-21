@@ -7,11 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "",
-        "EXPO_PUBLIC_POSTHOG_KEY": ""
-      },
       "android": {
         "buildType": "apk"
       },
@@ -21,24 +16,12 @@
     },
     "preview": {
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "",
-        "EXPO_PUBLIC_POSTHOG_KEY": ""
-      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "",
-        "EXPO_PUBLIC_POSTHOG_KEY": "",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": ""
-      }
+      "autoIncrement": true
     }
   },
   "submit": {

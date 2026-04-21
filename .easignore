@@ -1,7 +1,4 @@
 docs/
 vision.json
 FullLogo_Transparent_NoBuffer.png
-.env
-.env.local
-.env*.local
 convex/_generated/

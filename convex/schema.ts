@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import { GENDER_MODALITY, INTENTION, PLEDGE_TYPE, T4T_PREFERENCE } from './validators';
 
 export default defineSchema({
   // Synced from Clerk via webhook
@@ -11,6 +12,9 @@ export default defineSchema({
     dateOfBirth: v.optional(v.number()),
     isCis: v.optional(v.boolean()),
     onboardingComplete: v.boolean(),
+    // Pledge completion timestamps: these drive onboarding/auth gating and
+    // live on users so the root router can read them without a profile join.
+    // The versioned snapshot (pledgeVersion/Type on profiles) is the audit source.
     respectPledgeCompletedAt: v.optional(v.number()),
     extendedPledgeCompletedAt: v.optional(v.number()),
     accountStatus: v.union(
@@ -32,31 +36,25 @@ export default defineSchema({
     userId: v.id('users'),
     pronouns: v.array(v.string()),
     genderIdentity: v.string(),
-    genderModality: v.union(
-      v.literal('trans'),
-      v.literal('cis'),
-      v.literal('prefer-not-to-say'),
-    ),
+    genderModality: GENDER_MODALITY,
     orientation: v.array(v.string()),
-    t4tPreference: v.union(
-      v.literal('t4t-only'),
-      v.literal('t4t-preferred'),
-      v.literal('open'),
-    ),
-    intentions: v.array(v.union(
-      v.literal('hookup'),
-      v.literal('dating'),
-      v.literal('serious'),
-      v.literal('friendship'),
-    )),
-    city: v.string(),
-    locationLat: v.number(),
-    locationLng: v.number(),
-    maxDistanceKm: v.number(),
-    ageMin: v.number(),
-    ageMax: v.number(),
+    t4tPreference: T4T_PREFERENCE,
+    intentions: v.array(INTENTION),
+    // Location + age prefs are populated in Phase 3 (browse); Phase 1 creates the row without them.
+    city: v.optional(v.string()),
+    locationLat: v.optional(v.number()),
+    locationLng: v.optional(v.number()),
+    maxDistanceKm: v.optional(v.number()),
+    ageMin: v.optional(v.number()),
+    ageMax: v.optional(v.number()),
     bio: v.optional(v.string()),
     isVisible: v.boolean(),
+    // Pledge snapshot for audit: which version of the pledge copy this user
+    // accepted. The completion timestamps on users are what gating logic reads;
+    // these fields are the historical record for moderation/audit.
+    pledgeAcceptedAt: v.optional(v.number()),
+    pledgeVersion: v.optional(v.string()),
+    pledgeType: v.optional(PLEDGE_TYPE),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

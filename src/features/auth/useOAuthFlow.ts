@@ -44,6 +44,11 @@ export function useOAuthFlow() {
 
   const sendMagicLink = useCallback(
     async (email: string): Promise<void> => {
+      // Defensive normalization: SignInCard already trims before calling, but the
+      // hook is a public-ish surface. Strip whitespace and reject empty so we
+      // never round-trip an obviously-invalid identifier to Clerk.
+      const identifier = email.trim();
+      if (!identifier) throw new Error('Enter a valid email address');
       if (!signInLoaded || !signIn || !setActive) {
         throw new Error('Sign-in not ready yet, try again in a moment');
       }
@@ -69,7 +74,7 @@ export function useOAuthFlow() {
         // the flow promise below resolves and we set the active session.
         const { supportedFirstFactors } = await signIn.create({
           strategy: 'email_link',
-          identifier: email,
+          identifier,
           redirectUrl: OAUTH_REDIRECT_URL,
         });
 

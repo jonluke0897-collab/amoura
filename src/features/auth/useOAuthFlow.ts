@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useOAuth, useSignIn } from '@clerk/clerk-expo';
@@ -9,12 +9,15 @@ WebBrowser.maybeCompleteAuthSession();
 
 export type OAuthMethod = 'apple' | 'google';
 
+type EmailLinkFlowHandle = { cancelEmailLinkFlow: () => void };
+
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
   const googleFlow = useOAuth({ strategy: 'oauth_google' });
   const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
 
   const [busy, setBusy] = useState<OAuthMethod | 'email' | null>(null);
+  const linkFlowRef = useRef<EmailLinkFlowHandle | null>(null);
 
   const signInWith = useCallback(
     async (method: OAuthMethod): Promise<{ status: 'complete' | 'cancelled' }> => {
@@ -40,6 +43,22 @@ export function useOAuthFlow() {
       if (!signInLoaded || !signIn || !setActive) {
         throw new Error('Sign-in not ready yet, try again in a moment');
       }
+
+      // If a prior send is still long-polling (user tapped Send again before
+      // tapping the first email's link), cancel it so only one flow races
+      // setActive. Best-effort — swallow errors.
+      if (linkFlowRef.current) {
+        try {
+          linkFlowRef.current.cancelEmailLinkFlow();
+          if (__DEV__) {
+            // eslint-disable-next-line no-console
+            console.debug('[useOAuthFlow] cancelled prior email link flow');
+          }
+        } catch {
+          // Ignore — we're about to start a new flow anyway.
+        }
+      }
+
       setBusy('email');
       try {
         const redirectUrl = Linking.createURL('/', { scheme: 'amoura' });
@@ -59,6 +78,7 @@ export function useOAuthFlow() {
         if (!emailFactor) throw new Error('Email sign-in is not enabled for this account');
 
         const linkFlow = signIn.createEmailLinkFlow();
+        linkFlowRef.current = linkFlow;
         // Intentionally fire-and-forget. The caller's async work completes once
         // Clerk has sent the magic-link email (from signIn.create above); the
         // UI shows "Check your inbox" immediately. startEmailLinkFlow below only
@@ -80,6 +100,12 @@ export function useOAuthFlow() {
             if (__DEV__) {
               // eslint-disable-next-line no-console
               console.debug('[useOAuthFlow] email link flow ended:', err);
+            }
+          })
+          .finally(() => {
+            // Only clear if a later call hasn't already replaced the ref.
+            if (linkFlowRef.current === linkFlow) {
+              linkFlowRef.current = null;
             }
           });
       } finally {

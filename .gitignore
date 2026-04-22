@@ -49,5 +49,8 @@ yarn-error.*
 .vscode/
 .idea/
 
+# Claude Code local session artifacts
+.claude/
+
 # Microsoft Office temp lock files
 ~$*

@@ -59,9 +59,14 @@ export function useOAuthFlow() {
         if (!emailFactor) throw new Error('Email sign-in is not enabled for this account');
 
         const linkFlow = signIn.createEmailLinkFlow();
-        // Fire and forget from the caller's perspective. When the user taps the link, this
-        // resolves and we activate the session; setActive triggers ConvexProviderWithClerk
-        // to re-authenticate, which in turn re-fires getMineStatus → root layout routes.
+        // Intentionally fire-and-forget. The caller's async work completes once
+        // Clerk has sent the magic-link email (from signIn.create above); the
+        // UI shows "Check your inbox" immediately. startEmailLinkFlow below only
+        // resolves when the user taps the link in their email, which could be
+        // minutes later or never. Awaiting it would block the sheet UI forever.
+        // When the link is tapped, setActive triggers ConvexProviderWithClerk
+        // to re-authenticate, which re-fires getMineStatus → (auth) layout
+        // redirects the user away.
         linkFlow
           .startEmailLinkFlow({ emailAddressId: emailFactor.emailAddressId, redirectUrl })
           .then(async (result) => {

@@ -16,6 +16,10 @@ function nextStep(
   if (profile.intentions.length === 0) return 'intentions';
   if (!profile.pledgeAcceptedAt) return 'pledge';
   if (!user.respectPledgeCompletedAt) return 'pledge';
+  // Cis users additionally require the extended-pledge timestamp. Mirrors the
+  // two-field write in acceptPledge; defends against stale rows where only the
+  // base timestamp was set (e.g. migrations from an older schema).
+  if (user.isCis === true && !user.extendedPledgeCompletedAt) return 'pledge';
   return 'complete';
 }
 
@@ -51,7 +55,10 @@ export const upsertIdentity = mutation({
     genderIdentity: v.string(),
     genderModality: GENDER_MODALITY,
     orientation: v.array(v.string()),
-    t4tPreference: T4T_PREFERENCE,
+    // Optional at the API boundary so clients that omit it (e.g. cis users whose
+    // UI hides the picker) don't hit validation errors. Handler defaults to "open"
+    // and then re-coerces for cis users below.
+    t4tPreference: v.optional(T4T_PREFERENCE),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -71,7 +78,8 @@ export const upsertIdentity = mutation({
     // Architectural safety (vision doc § 1): cis users cannot persist t4t-only
     // even if the client sends it. We coerce here rather than reject so a buggy
     // client or back-button edge case silently produces the correct state.
-    const t4tPreference = args.genderModality === 'cis' ? 'open' : args.t4tPreference;
+    // Clients that omit the field entirely also default to "open".
+    const t4tPreference = args.genderModality === 'cis' ? 'open' : (args.t4tPreference ?? 'open');
 
     const now = Date.now();
     // Mirror isCis onto users so pledge-branch logic can read it without a profile join.
@@ -165,6 +173,10 @@ export const acceptPledge = mutation({
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .unique();
     if (!profile) throw new Error('Complete identity step first');
+    // Server-enforced step order: the UI routes identity → intentions → pledge,
+    // but a direct API call could skip intentions and jump here. Block that so
+    // onboardingComplete can't be set with no intentions stored.
+    if (profile.intentions.length === 0) throw new Error('Complete intentions step first');
 
     const now = Date.now();
     await ctx.db.patch(profile._id, {

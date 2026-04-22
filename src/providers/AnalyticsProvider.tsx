@@ -14,7 +14,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <PostHogProvider apiKey={apiKey} options={{ host: 'https://us.i.posthog.com' }} autocapture>
+    <PostHogProvider apiKey={apiKey} options={{ host: 'https://eu.i.posthog.com' }} autocapture>
       {children}
     </PostHogProvider>
   );

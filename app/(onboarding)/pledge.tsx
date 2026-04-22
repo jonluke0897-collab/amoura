@@ -54,6 +54,7 @@ export default function PledgeScreen() {
           submitting={submitting}
           errorMessage={error}
           onAccept={handleAccept}
+          onDisagree={() => router.replace('/(onboarding)/pledge-exit')}
         />
       ) : (
         <RespectPledgeStandard

@@ -16,11 +16,21 @@ export const STANDARD_COMMITMENTS: readonly string[] = [
 
 export const EXTENDED_PLEDGE_HEADING = "Welcome in. Here's how we show up for each other.";
 export const EXTENDED_PLEDGE_SUBHEAD =
-  "Read each one, then type your initials to agree. This takes a minute — it matters.";
+  "Read each one, then tap Agree. This takes a minute — it matters.";
 export const EXTENDED_PLEDGE_CTA = "Submit pledge";
-export const EXTENDED_PLEDGE_INITIAL_INPUT_LABEL = "Type your initials to agree";
+export const EXTENDED_PLEDGE_AGREE_LABEL = "Agree";
+export const EXTENDED_PLEDGE_DISAGREE_LABEL = "Disagree";
 // Minimum read time before the Continue button enables, in milliseconds.
 export const EXTENDED_PLEDGE_MIN_READ_MS = 15_000;
+
+// Shown when a cis user taps "Disagree" on any commitment. Warm, guest-framing
+// exit — the vision doc is explicit that cis users are guests, and that if they
+// can't commit to these norms, Amoura isn't the right space for them.
+export const PLEDGE_EXIT_HEADING = "Amoura might not be the right space for you right now.";
+export const PLEDGE_EXIT_BODY =
+  "These aren't negotiable — they're how we keep this place safe and warm for the people at the center of it. If anything on the pledge didn't sit right, that's okay. No hard feelings. You're welcome back anytime your answer changes.";
+export const PLEDGE_EXIT_BACK_CTA = "Take me back";
+export const PLEDGE_EXIT_SIGN_OUT_CTA = "Sign out";
 
 export const EXTENDED_COMMITMENTS: readonly string[] = [
   "I'll use the pronouns people share with me every single time — no exceptions, no quiet substitutions.",

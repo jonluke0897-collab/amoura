@@ -32,6 +32,15 @@ const config: ExpoConfig = {
     'expo-font',
     'expo-secure-store',
     'expo-web-browser',
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Amoura needs access to your photos so you can share your best self — only the ones you pick are uploaded.',
+        cameraPermission:
+          'Amoura uses the camera when you want to take a new photo for your profile.',
+      },
+    ],
   ],
   extra: {
     eas: {

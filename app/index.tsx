@@ -24,8 +24,12 @@ export default function Index() {
       return <Redirect href="/(onboarding)/intentions" />;
     case 'pledge':
       return <Redirect href="/(onboarding)/pledge" />;
+    case 'photos':
+      return <Redirect href="/(onboarding)/photos" />;
+    case 'prompts':
+      return <Redirect href="/(onboarding)/prompts" />;
     case 'complete':
-      return <Redirect href="/(tabs)/browse" />;
+      return <Redirect href="/(tabs)/profile" />;
     default: {
       // Exhaustiveness: adding a new OnboardingStep variant without a case here
       // will surface as a compile-time error on this line.

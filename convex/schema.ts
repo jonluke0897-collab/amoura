@@ -69,6 +69,11 @@ export default defineSchema({
     position: v.number(),
     isVerified: v.boolean(),
     caption: v.optional(v.string()),
+    // Dimensions captured by expo-image-manipulator after resize so the client
+    // can reserve layout space before the image decodes — avoids shift in the
+    // carousel on slow networks.
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_profile', ['profileId'])

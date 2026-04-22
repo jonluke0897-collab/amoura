@@ -47,8 +47,47 @@ export const INTENTIONS_SCREEN = {
   maxSelectionHint: 'Pick up to three',
 };
 
+export const PHOTOS_SCREEN = {
+  heading: 'Show up as yourself.',
+  subhead:
+    'Two to six photos. Drag to reorder — the first is what people see first.',
+  minHint: 'Add at least 2 photos to continue.',
+  addCta: 'Add a photo',
+  pickerLibrary: 'Choose from library',
+  pickerCamera: 'Take a photo',
+  pickerCancel: 'Cancel',
+  removeTitle: 'Remove this photo?',
+  removeConfirm: 'Remove',
+  removeCancel: 'Keep',
+  continueCta: 'Continue',
+  saveCta: 'Save',
+  permissionDeniedTitle: 'Photo access is off',
+  permissionDeniedBody:
+    'To add photos, turn on photo access for Amoura in your device settings.',
+  uploadFailedTitle: 'Upload failed',
+  uploadFailedBody: 'Tap to try again.',
+};
+
+export const PROMPTS_SCREEN = {
+  heading: 'Three prompts.',
+  subhead: 'Pick three. Keep it honest — this is how people get to know you.',
+  pickCta: 'Pick a prompt',
+  continueCta: 'Continue',
+  saveCta: 'Save',
+  characterLimit: 250,
+  counterSuffix: '/250',
+  editorPlaceholder: 'Write your answer…',
+  emptySlotLabel: 'Pick a prompt',
+  discardTitle: 'Discard changes?',
+  discardBody: "You haven't saved yet.",
+  discardConfirm: 'Discard',
+  discardKeep: 'Keep editing',
+  pickerTitle: 'Pick a prompt',
+  pickerClose: 'Close',
+};
+
 export const COMPLETE_SCREEN = {
   heading: "You're in.",
-  subhead: "Let's build your profile — take your time.",
-  cta: 'Add photos',
+  subhead: "Here's how you'll show up.",
+  cta: 'See my profile',
 };

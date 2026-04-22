@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "createdAt": "2026-04-21T18:00:00Z",
+    "updatedAt": "2026-04-21T18:00:00Z",
+    "version": "1.0",
+    "plaidVersion": "1.0"
+  },
+  "creator": {
+    "name": "Jon",
+    "expertise": "Retail worker and musician who builds mobile apps in spare time. Self-taught builder working toward transitioning out of retail through app revenue.",
+    "background": "Jon works in retail by day, makes music, and builds apps on nights and weekends. He is a cis man who has been attracted to trans women for years and has watched every existing dating app fail both trans women and the respectful men who want to date them. He is building Amoura partly because the product should exist, and partly because he wants to leave retail and build something that pays for his life while mattering to a community he cares about."
+  },
+  "purpose": {
+    "whoYouHelp": "Trans women first — and the broader T4T community (trans men, non-binary, and gender-diverse folks) dating each other. Alongside them, respectful cis men and cis queer women attracted to trans and non-binary partners. The cultural core is trans people dating trans people; cis users are welcome guests in a trans-centered space, not the primary customer.",
+    "problemYouSolve": "Existing dating apps are fundamentally broken for trans women. Mainstream apps (Tinder, Hinge, Bumble) treat trans inclusion as an afterthought — a pronoun field bolted onto cis-default UX. Trans-niche apps (Taimi, Transdr) claim inclusion but in practice are dominated by chasers and fetishizers, with weak safety tools and low trust. The root problem is fetishization: trans women are treated as a kink rather than a person, which drives both the safety crisis (harassment, outing, unsafe encounters) and the identity visibility crisis (the impossible choice between disclosing early and facing harassment, or not disclosing and being accused of deception). All three problems are one problem with three faces, and Amoura is designed to solve all of them together — with fetishization as the root-cause north star.",
+    "desiredTransformation": "A trans woman on Amoura is seen as a whole person, not a category. She can scroll, match, and message without bracing for harassment. Her matches comment on her music taste, her art, her shower thoughts — not her body. Her identity is assumed and respected, not interrogated or performed. And she has actual options: real conversations, real dates, real relationships. Amoura is not 'the app that sucks less' — it is where trans love and community are actually happening. She feels seen, safe, and thriving, all at once.",
+    "whyYou": "Jon's founder narrative is stake + humility + hunger. He is authentically part of one of Amoura's audiences — a cis man attracted to trans women who has personally watched existing apps fail — which gives him genuine insight into the respectful-partner side of the equation. He explicitly does not claim to be a trans woman or have that lived experience, and commits to partnering with trans women at every step as paid advisors, co-designers, community moderators, and ideally co-owners; the product will only be as good as the trans women who shape it. And he has the grit of a solo builder: a retail worker and musician shipping on nights and weekends because no VC-funded founder is going to build this right."
+  },
+  "product": {
+    "name": "Amoura",
+    "oneLiner": "Amoura is a trans-first dating app where trans women and their community find real connection, not fetishization.",
+    "howItWorks": "Amoura uses a Hinge-style prompt-and-match format. Users build profiles around thoughtful prompts ('A shower thought I recently had...', 'I'll fall for you if...', 'My favorite thing about being trans is...') alongside photos and optional audio clips. To start a conversation, you like or comment on a specific prompt or photo — not a generic swipe. Conversations begin with real context, which filters out generic chaser messages. Profile fields put pronouns, gender identity, and orientation front and center as first-class data, with a T4T preference toggle for users who want to stay within the trans/NB community. All users go through respect-based onboarding; cis users complete a more specific flow covering pronouns, consent, and what fetishization looks like before they can interact. Matching is conversation-first, not appearance-first.",
+    "keyCapabilities": [
+      "Identity-first profile builder with pronouns, gender identity, and orientation as first-class fields, plus a T4T preference toggle",
+      "Hinge-style prompts (photos + thoughtful prompts + optional audio) where users like or comment to start conversations with real context",
+      "Respect-pledge onboarding for all users, with a more specific flow for cis users covering pronouns, consent, and fetishization",
+      "Photo and ID verification for all users, plus bad-actor pattern detection and robust block/report tooling",
+      "Intentions field (hookup / dating / serious / friendship) and filters to help people self-select into compatible matches"
+    ],
+    "platform": "mobile",
+    "marketDifferentiation": "Three stacked differentiators used together. (1) Trans-first by design: unlike mainstream apps where trans inclusion is an afterthought, every feature, algorithm, and onboarding step on Amoura is built with trans women as the default user. (2) Built with, not for: unlike every trans-inclusive app shipped by outsiders, Amoura partners with trans women as paid advisors and co-designers so the product is literally shaped by the community it serves. (3) Architecturally hostile to fetishization: unlike Taimi or Transdr, Amoura is designed to filter out chaser behavior through respect pledges, verification, conversation-led matching, and community moderation. These legs stack — Amoura leads with whichever is most resonant for a given audience, but the story is all three together.",
+    "magicMoment": "Three aha moments layered together. For a trans woman: the first real conversation — she matches with someone who commented thoughtfully on her actual prompt (her favorite album, her shower thought, her art) rather than her body, and she realizes 'oh, this is what dating is supposed to feel like.' For anyone in the core audience: the scroll that feels like home — the first time opening the app and realizing half the people on it are trans, openly themselves, living their lives, with no hiding required. For a cis user: the respect-pledge moment — going through onboarding and having to read and agree to what respect, pronouns, and fetishization mean on Amoura before they can interact, arriving into the app understanding they are a guest in someone else's space, and showing up differently as a result."
+  },
+  "audience": {
+    "primaryUser": "Amoura is designed for three overlapping trans-women archetypes, and the MVP serves all three through flexible identity/intentions/filter fields with T4T as the cultural core. (1) Maya, 32, tech worker in Austin, attracted to men, out 5+ years, stable in her identity — looking for serious dating but tired of the disclosure anxiety and low-grade dread on Hinge; wants respectful cis men who treat her as a partner, not a kink. (2) Sarah, 28, graphic designer in Brooklyn, bi/pan, dates both trans and cis folks, deeply values queer community — has tried and deleted every app and wants to stop bracing and start actually dating. (3) Alex, 24, non-binary trans person in Oakland, activist and organizer, T4T-focused — wants to date within the trans and NB community and is tired of being someone's 'learning experience.'",
+    "secondaryUsers": [
+      "Respectful cis men attracted to trans women — welcome as guests in a trans-centered space, required to complete respect-pledge onboarding, positioned as partners rather than the primary customer",
+      "Queer cis women (bi, pan, lesbian) attracted to trans women and non-binary folks — drawn to the queer-affirming vibe and the chance to date within the trans/NB community",
+      "Trans men and non-binary folks dating trans women or each other — the T4T community that forms the beating cultural core of the app"
+    ],
+    "currentAlternatives": "Mainstream dating apps (Tinder, Hinge, Bumble) where trans inclusion is an afterthought and safety tooling is weak; and trans-niche apps (Taimi, Transdr) that claim inclusion but in practice are dominated by chasers, have low trust, and are poorly rated by the trans women they claim to serve. Adjacent options include HER (primarily queer cis women, not trans-centered), Lex (text-based queer personals, small niche), and Feeld (kink/poly-leaning). Off-app alternatives include trans community Discords, queer meetups, friend-of-friend intros, or giving up on dating entirely.",
+    "frustrations": "On mainstream apps: cis-default UX, weak identity fields that force awkward disclosure choices, weak safety tools, unmoderated harassment, and opaque/ineffective reporting. On trans-niche apps: even though they 'let trans people in,' they attract cis men looking for fetish content, who dominate the dynamic; trans women get flooded with fetish messages and churn out, leaving the apps feeling unsafe, dated, and low-quality. Across every option: the chaser problem, the disclosure/visibility double-bind, and the persistent sense that trans women are an afterthought at best and a kink at worst. Many trans women have given up on apps entirely and rely on word-of-mouth or being single."
+  },
+  "business": {
+    "revenueModel": "freemium",
+    "initialGoal": "At 90 days post-launch: 5,000+ active users with 60–70% being trans/NB (the core audience), 200+ paying subscribers (~4% conversion), featured in a mainstream queer publication (Them, Out, or Autostraddle), App Store rating of 4.5+ in the Dating category, and clear early retention signal (DAU/WAU stable or growing week over week). These are ambitious targets for an organic-only launch, and the roadmap includes fallback milestones (1,500 users / first revenue / first press) as honest checkpoints.",
+    "sixMonthVision": "Quit retail. At 6 months: 15,000–25,000 active users, $10k–$20k MRR, Jon working full-time on Amoura. One paid trans advisor or moderator on payroll. Clear product-market fit signal — users telling friends, organic growth, positive reviews from trans women specifically. A credible path to either staying indie-profitable or raising seed capital to scale without compromising the trans-first mission.",
+    "constraints": "Solo founder building on nights and weekends while working full-time retail. Limited budget — self-funded, no VC or friends-and-family round. Time is the hardest constraint: 15–25 hours per week on build plus community work. Skills: strong on product vision, moderate on mobile development (learning Expo/React Native), reliant on Claude Code to move fast. Non-tech constraints are significant: dating-app liability (safety, moderation, legal reporting obligations), App Store review scrutiny for dating apps, and the non-negotiable need to budget for paid trans advisors/co-designers from day one — this is load-bearing for the product, not a nice-to-have.",
+    "goToMarket": "Two-pronged organic launch with no paid acquisition at launch. (1) Community beta via trans/queer Discords and subreddits (r/asktransgender, r/trans4trans, r/transpositive) — invite-only at first, with hand-picked early users who shape the product and become word-of-mouth drivers. (2) Build in public on Twitter/X and TikTok — documenting the build, sharing progress, partnering with trans creators where possible, posting 3x/week minimum with honest reflection on what it means for a cis founder to build a trans-first product. PR push at launch targeting Them, Out, Autostraddle, Erin in the Morning, and trans-focused newsletters. Growth depends on density-within-niche and authenticity of story — not reach."
+  },
+  "feeling": {
+    "brandPersonality": "Warm advocate with radiant moments. Amoura feels like a close trans friend who has your back — thoughtful, protective, quietly witty — but with playful, joyful energy woven throughout. Serious about safety, light about everything else. Never performative, never preachy, never cold. The antidote to the joyless grind of existing apps: trans joy is a product value, not an afterthought.",
+    "visualMood": "Soft glow. Rosy pinks, warm creams, pale golds, soft purples, and deep plum accents. Tender, safe, feminine-coded without being pink-princess; slightly dreamy, approachable. Typography pairs a warm serif display (romantic and intentional, not techy) with a clean, friendly sans body. Imagery is natural light, real-feeling, imperfect — never stock models, never performatively diverse, never body-focused. Think: early golden hour, a trusted friend's kitchen, a queer art zine.",
+    "toneOfVoice": "Warm friend with an edge. Default voice is casual, supportive, funny — 'Heads up, looks like someone sent you something weird. We've got you.' / 'You matched with Maya. Her prompt was a 10/10.' But when safety or respect is on the line, the tone becomes direct without apology — 'If you're cis, welcome. You're a guest here — be a good one.' / 'That message violated our respect norms. The account is under review.' Plain language, never jargon; trans-coded where natural, never performatively so; never cutesy, never corporate.",
+    "antiPatterns": "Never rainbow-wash or write performative allyship copy. Never use clinical or medicalized language about trans identity. Never use stock photography or performatively diverse models. Never position cis users as heroes or saviors. Never use body-focused imagery or fetish-adjacent language in marketing, onboarding, or the product. Never 'love wins' saccharine copy. Never lean on the trans flag colors (blue/pink/white) as a literal design crutch — reference it subtly at most. Never treat trans identity as a feature; treat it as the default. Never let cis voices be the loudest in Amoura's community, product copy, or marketing."
+  },
+  "techStack": {
+    "appType": "mobile",
+    "frontend": {
+      "choice": "Expo (React Native)",
+      "rationale": "Single TypeScript codebase for iOS and Android, huge ecosystem, excellent support in Claude Code, EAS Build handles deployment to both app stores. Best solo-founder choice for a mobile dating app that needs real-time chat, camera/photo handling, geolocation, and push notifications."
+    },
+    "backend": {
+      "choice": "Convex",
+      "rationale": "Real-time reactivity is perfect for dating UX — live matches, real-time chat, instant profile updates. TypeScript end-to-end with Expo, built-in file storage for photos, zero backend boilerplate. Critical for a solo founder with limited time. Generous free tier covers early growth."
+    },
+    "database": {
+      "choice": "Convex Database",
+      "rationale": "Included with Convex backend. Document-relational model with automatic indexing and ACID transactions. Reactive queries make matches and messages feel instant. No separate database to provision or manage."
+    },
+    "auth": {
+      "choice": "Clerk",
+      "rationale": "Best mobile auth UX in the ecosystem — polished Apple/Google OAuth, email magic links, and phone auth with a great React Native SDK. Free up to 10K MAU. Clean integration with Convex. Essential that a dating app has rock-solid, trusted auth from day one."
+    },
+    "payments": {
+      "choice": "RevenueCat",
+      "rationale": "Standard for mobile subscriptions — abstracts Apple StoreKit and Google Play Billing into one SDK and handles receipts, refunds, entitlements, and paywalls. Free up to $2.5k/mo in tracked revenue, which covers early growth. Essential for implementing freemium on iOS + Android without writing billing code."
+    }
+  },
+  "tooling": {
+    "codingAgent": "claude-code"
+  }
+}

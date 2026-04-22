@@ -7,6 +7,11 @@ import { useOAuth, useSignIn } from '@clerk/clerk-expo';
 // Safe to call at module load; Clerk's Expo guide recommends this.
 WebBrowser.maybeCompleteAuthSession();
 
+// Shared deep-link target used by both Clerk OAuth providers and the email-link
+// flow. Computed at module load (Linking.createURL is side-effect-free).
+// Centralizing avoids drift if the scheme or path ever changes.
+const OAUTH_REDIRECT_URL = Linking.createURL('/', { scheme: 'amoura' });
+
 export type OAuthMethod = 'apple' | 'google';
 
 type EmailLinkFlowHandle = { cancelEmailLinkFlow: () => void };
@@ -24,8 +29,7 @@ export function useOAuthFlow() {
       setBusy(method);
       try {
         const flow = method === 'apple' ? appleFlow : googleFlow;
-        const redirectUrl = Linking.createURL('/', { scheme: 'amoura' });
-        const result = await flow.startOAuthFlow({ redirectUrl });
+        const result = await flow.startOAuthFlow({ redirectUrl: OAUTH_REDIRECT_URL });
         if (result.createdSessionId && result.setActive) {
           await result.setActive({ session: result.createdSessionId });
           return { status: 'complete' };
@@ -61,14 +65,12 @@ export function useOAuthFlow() {
 
       setBusy('email');
       try {
-        const redirectUrl = Linking.createURL('/', { scheme: 'amoura' });
-
         // Start the email-link sign-in. Clerk emails a magic link; when the user taps it,
         // the flow promise below resolves and we set the active session.
         const { supportedFirstFactors } = await signIn.create({
           strategy: 'email_link',
           identifier: email,
-          redirectUrl,
+          redirectUrl: OAUTH_REDIRECT_URL,
         });
 
         const emailFactor = supportedFirstFactors?.find(
@@ -88,7 +90,7 @@ export function useOAuthFlow() {
         // to re-authenticate, which re-fires getMineStatus → (auth) layout
         // redirects the user away.
         linkFlow
-          .startEmailLinkFlow({ emailAddressId: emailFactor.emailAddressId, redirectUrl })
+          .startEmailLinkFlow({ emailAddressId: emailFactor.emailAddressId, redirectUrl: OAUTH_REDIRECT_URL })
           .then(async (result) => {
             if (result.status === 'complete' && result.createdSessionId) {
               await setActive({ session: result.createdSessionId });

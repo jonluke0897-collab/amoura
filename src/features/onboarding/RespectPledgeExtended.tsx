@@ -88,6 +88,9 @@ export function RespectPledgeExtended({
   const canSubmit = timerElapsed && allAgreed;
 
   const setAt = (i: number, choice: Choice) => {
+    // No-op while a submission is in flight: otherwise tapping Disagree mid-submit
+    // would race the acceptPledge mutation with a navigation to the exit screen.
+    if (submitting) return;
     // If the user taps Disagree on any commitment, short-circuit to the exit flow
     // — the pledge isn't negotiable per vision doc § 1 (respect is gated, not suggested).
     if (choice === 'disagree') {

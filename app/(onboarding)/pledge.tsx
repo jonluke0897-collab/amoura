@@ -41,6 +41,15 @@ export default function PledgeScreen() {
       track(AnalyticsEvents.ONBOARDING_COMPLETED, { pledgeType });
       router.replace('/(onboarding)/complete');
     } catch (e) {
+      // Full error details go to the dev console for diagnostics. The user-visible
+      // message intentionally keeps e.message because our server-thrown errors
+      // (e.g. "Complete intentions step first") are user-actionable guidance, not
+      // internal leakage. Phase 7 polish will replace these with advisor-reviewed
+      // copy; until then this is the most useful surface for both users and devs.
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.error('[pledge] acceptPledge failed:', e);
+      }
       setError(e instanceof Error ? e.message : 'Something went sideways. Try again?');
     } finally {
       setSubmitting(false);

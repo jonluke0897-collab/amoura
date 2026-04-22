@@ -7,6 +7,7 @@ export const AnalyticsEvents = {
   APP_OPENED: 'app_opened',
   SIGN_IN_ATTEMPTED: 'sign_in_attempted',
   SIGN_IN_SUCCEEDED: 'sign_in_succeeded',
+  SIGN_IN_CANCELLED: 'sign_in_cancelled',
   SIGN_IN_FAILED: 'sign_in_failed',
   ONBOARDING_STEP_COMPLETED: 'onboarding_step_completed',
   ONBOARDING_COMPLETED: 'onboarding_completed',
@@ -17,7 +18,7 @@ export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEven
 
 export function useTrack() {
   const posthog = usePostHog();
-  return (event: string, properties?: EventProperties) => {
+  return (event: AnalyticsEvent, properties?: EventProperties) => {
     posthog?.capture(event, properties);
   };
 }

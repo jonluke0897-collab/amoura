@@ -1,29 +1,7 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import type { Doc } from './_generated/dataModel';
-
-const GENDER_MODALITY = v.union(
-  v.literal('trans'),
-  v.literal('cis'),
-  v.literal('prefer-not-to-say'),
-);
-
-const T4T_PREFERENCE = v.union(
-  v.literal('t4t-only'),
-  v.literal('t4t-preferred'),
-  v.literal('open'),
-);
-
-const INTENTION = v.union(
-  v.literal('hookup'),
-  v.literal('dating'),
-  v.literal('serious'),
-  v.literal('friendship'),
-  v.literal('community'),
-  v.literal('figuring-it-out'),
-);
-
-const PLEDGE_TYPE = v.union(v.literal('standard'), v.literal('extended'));
+import { GENDER_MODALITY, INTENTION, PLEDGE_TYPE, T4T_PREFERENCE } from './validators';
 
 type OnboardingStep = 'identity' | 'intentions' | 'pledge' | 'complete';
 

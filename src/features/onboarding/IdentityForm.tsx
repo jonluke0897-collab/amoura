@@ -149,7 +149,9 @@ export function IdentityForm({ submitting = false, errorMessage = null, onSubmit
           <ChipGroup
             options={GENDER_SUGGESTIONS}
             selected={GENDER_SUGGESTIONS.includes(genderIdentity) ? [genderIdentity] : []}
-            onChange={(next) => setGenderIdentity(next[0] ?? genderIdentity)}
+            // Deselecting a suggestion clears the input — matches the user's intent
+            // more cleanly than silently preserving the previous text.
+            onChange={(next) => setGenderIdentity(next[0] ?? '')}
             mode="single"
           />
         </View>

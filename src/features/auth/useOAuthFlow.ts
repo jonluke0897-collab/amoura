@@ -69,8 +69,13 @@ export function useOAuthFlow() {
               await setActive({ session: result.createdSessionId });
             }
           })
-          .catch(() => {
-            // Swallow — caller UI handles "link expired / cancelled" via timeout UX.
+          .catch((err) => {
+            // Swallow for the user (caller UI handles "link expired / cancelled" via timeout UX),
+            // but surface in dev so engineers see cancellations/timeouts during iteration.
+            if (__DEV__) {
+              // eslint-disable-next-line no-console
+              console.debug('[useOAuthFlow] email link flow ended:', err);
+            }
           });
       } finally {
         setBusy(null);

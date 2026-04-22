@@ -111,6 +111,7 @@ export function ChipGroup({
           disabled={disabled}
           accessibilityRole="button"
           accessibilityLabel={`Remove ${value}`}
+          accessibilityState={{ selected: true, disabled }}
           className="flex-row items-center gap-1 rounded-full px-3 py-2 border bg-plum-600 border-plum-600"
         >
           <Text className="font-body text-sm text-cream-50">{value}</Text>

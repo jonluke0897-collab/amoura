@@ -49,7 +49,12 @@ export function RespectPledgeExtended({ submitting = false, errorMessage = null,
   return (
     <View className="flex-1">
       {/* Read-time progress bar */}
-      <View className="h-1 w-full bg-plum-50 rounded-full overflow-hidden mb-4">
+      <View
+        className="h-1 w-full bg-plum-50 rounded-full overflow-hidden mb-4"
+        accessibilityRole="progressbar"
+        accessibilityLabel="Reading time progress"
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(progressPct) }}
+      >
         <View
           className={cn('h-full', timerElapsed ? 'bg-plum-600' : 'bg-plum-400')}
           style={{ width: `${progressPct}%` }}

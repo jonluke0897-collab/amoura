@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
+import { GENDER_MODALITY, INTENTION, PLEDGE_TYPE, T4T_PREFERENCE } from './validators';
 
 export default defineSchema({
   // Synced from Clerk via webhook
@@ -35,25 +36,10 @@ export default defineSchema({
     userId: v.id('users'),
     pronouns: v.array(v.string()),
     genderIdentity: v.string(),
-    genderModality: v.union(
-      v.literal('trans'),
-      v.literal('cis'),
-      v.literal('prefer-not-to-say'),
-    ),
+    genderModality: GENDER_MODALITY,
     orientation: v.array(v.string()),
-    t4tPreference: v.union(
-      v.literal('t4t-only'),
-      v.literal('t4t-preferred'),
-      v.literal('open'),
-    ),
-    intentions: v.array(v.union(
-      v.literal('hookup'),
-      v.literal('dating'),
-      v.literal('serious'),
-      v.literal('friendship'),
-      v.literal('community'),
-      v.literal('figuring-it-out'),
-    )),
+    t4tPreference: T4T_PREFERENCE,
+    intentions: v.array(INTENTION),
     // Location + age prefs are populated in Phase 3 (browse); Phase 1 creates the row without them.
     city: v.optional(v.string()),
     locationLat: v.optional(v.number()),
@@ -68,7 +54,7 @@ export default defineSchema({
     // these fields are the historical record for moderation/audit.
     pledgeAcceptedAt: v.optional(v.number()),
     pledgeVersion: v.optional(v.string()),
-    pledgeType: v.optional(v.union(v.literal('standard'), v.literal('extended'))),
+    pledgeType: v.optional(PLEDGE_TYPE),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

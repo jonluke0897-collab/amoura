@@ -19,7 +19,10 @@ export function WelcomeAnimation({ children, delayMs = 120, durationMs = 520 }: 
   useEffect(() => {
     opacity.value = withDelay(delayMs, withTiming(1, { duration: durationMs }));
     translateY.value = withDelay(delayMs, withTiming(0, { duration: durationMs }));
-  }, [delayMs, durationMs, opacity, translateY]);
+    // Reanimated shared values are stable refs across renders — including them in
+    // deps would be harmless but misleading. Only animation timing params matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [delayMs, durationMs]);
 
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,

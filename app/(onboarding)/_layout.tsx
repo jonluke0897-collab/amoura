@@ -20,6 +20,11 @@ export default function OnboardingLayout() {
   const currentIndex = step ? STEP_ORDER.indexOf(step) : 0;
   const track = useTrack();
   const lastStepRef = useRef<Step | null>(step);
+  // Hold track in a ref so the AppState listener effect below can depend on []
+  // without stale-closure bugs — useTrack returns a fresh function identity on
+  // each render, which would otherwise re-register the listener constantly.
+  const trackRef = useRef(track);
+  trackRef.current = track;
 
   useEffect(() => {
     lastStepRef.current = step;
@@ -28,11 +33,11 @@ export default function OnboardingLayout() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'background' && lastStepRef.current && lastStepRef.current !== 'complete') {
-        track(AnalyticsEvents.ONBOARDING_ABANDONED, { lastStep: lastStepRef.current });
+        trackRef.current(AnalyticsEvents.ONBOARDING_ABANDONED, { lastStep: lastStepRef.current });
       }
     });
     return () => sub.remove();
-  }, [track]);
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-cream-50">

@@ -10,14 +10,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ClerkProvider } from '~/src/providers/ClerkProvider';
 import { ConvexProvider } from '~/src/providers/ConvexProvider';
 import { AnalyticsProvider } from '~/src/providers/AnalyticsProvider';
-import { useTrack } from '~/src/lib/analytics';
+import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 
 SplashScreen.preventAutoHideAsync();
 
 function AppOpenedEvent() {
   const track = useTrack();
   useEffect(() => {
-    track('app_opened');
+    track(AnalyticsEvents.APP_OPENED);
   }, [track]);
   return null;
 }

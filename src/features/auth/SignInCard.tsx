@@ -27,6 +27,9 @@ export function SignInCard() {
         track(AnalyticsEvents.SIGN_IN_SUCCEEDED, { method });
         // Bounce to / so the root router re-evaluates against the newly-signed-in state.
         router.replace('/');
+      } else {
+        // User dismissed the OAuth sheet. Not a failure — track separately for funnel analysis.
+        track(AnalyticsEvents.SIGN_IN_CANCELLED, { method });
       }
     } catch (e) {
       track(AnalyticsEvents.SIGN_IN_FAILED, { method });
@@ -34,10 +37,14 @@ export function SignInCard() {
     }
   };
 
+  // Basic structural check (local@domain.tld). Clerk handles real validation server-side;
+  // this just stops obvious malformed inputs from making a round trip.
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handleEmailSubmit = async () => {
     setError(null);
     const trimmed = email.trim();
-    if (!trimmed.includes('@')) {
+    if (!EMAIL_PATTERN.test(trimmed)) {
       setError('Enter a valid email address.');
       return;
     }

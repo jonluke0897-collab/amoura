@@ -7,8 +7,14 @@ type Props = {
 };
 
 export function ProgressDots({ total, currentIndex }: Props) {
+  const stepNumber = currentIndex + 1;
   return (
-    <View className="flex-row items-center justify-center gap-2" accessibilityRole="progressbar">
+    <View
+      className="flex-row items-center justify-center gap-2"
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Step ${stepNumber} of ${total}`}
+      accessibilityValue={{ min: 1, max: total, now: stepNumber }}
+    >
       {Array.from({ length: total }).map((_, i) => (
         <View
           key={i}

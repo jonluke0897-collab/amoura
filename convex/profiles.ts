@@ -90,6 +90,11 @@ export const upsertIdentity = mutation({
     if (args.pronouns.length === 0) throw new Error('At least one pronoun is required');
     if (args.orientation.length === 0) throw new Error('At least one orientation is required');
 
+    // Architectural safety (vision doc § 1): cis users cannot persist t4t-only
+    // even if the client sends it. We coerce here rather than reject so a buggy
+    // client or back-button edge case silently produces the correct state.
+    const t4tPreference = args.genderModality === 'cis' ? 'open' : args.t4tPreference;
+
     const now = Date.now();
     // Mirror isCis onto users so pledge-branch logic can read it without a profile join.
     await ctx.db.patch(user._id, { isCis: args.genderModality === 'cis', lastActiveAt: now });
@@ -105,7 +110,7 @@ export const upsertIdentity = mutation({
         genderIdentity: trimmedIdentity,
         genderModality: args.genderModality,
         orientation: args.orientation,
-        t4tPreference: args.t4tPreference,
+        t4tPreference,
         updatedAt: now,
       });
       return existing._id;
@@ -117,7 +122,7 @@ export const upsertIdentity = mutation({
       genderIdentity: trimmedIdentity,
       genderModality: args.genderModality,
       orientation: args.orientation,
-      t4tPreference: args.t4tPreference,
+      t4tPreference,
       intentions: [],
       isVisible: false,
       createdAt: now,

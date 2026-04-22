@@ -26,6 +26,10 @@ export default function PledgeScreen() {
   // Not signed in / user row missing — bounce back to the root router.
   if (status === null) return <Redirect href="/" />;
 
+  // Modality unset (webhook race or back-button edge case): send them back to identity
+  // rather than defaulting to standard based on null-as-not-cis.
+  if (status.isCis === null) return <Redirect href="/(onboarding)/identity" />;
+
   const pledgeType: 'standard' | 'extended' = status.isCis === true ? 'extended' : 'standard';
 
   const handleAccept = async () => {

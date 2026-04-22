@@ -11,6 +11,9 @@ export default defineSchema({
     dateOfBirth: v.optional(v.number()),
     isCis: v.optional(v.boolean()),
     onboardingComplete: v.boolean(),
+    // Pledge completion timestamps: these drive onboarding/auth gating and
+    // live on users so the root router can read them without a profile join.
+    // The versioned snapshot (pledgeVersion/Type on profiles) is the audit source.
     respectPledgeCompletedAt: v.optional(v.number()),
     extendedPledgeCompletedAt: v.optional(v.number()),
     accountStatus: v.union(
@@ -60,7 +63,9 @@ export default defineSchema({
     ageMax: v.optional(v.number()),
     bio: v.optional(v.string()),
     isVisible: v.boolean(),
-    // Respect pledge snapshot (version lets us detect users who accepted old copy).
+    // Pledge snapshot for audit: which version of the pledge copy this user
+    // accepted. The completion timestamps on users are what gating logic reads;
+    // these fields are the historical record for moderation/audit.
     pledgeAcceptedAt: v.optional(v.number()),
     pledgeVersion: v.optional(v.string()),
     pledgeType: v.optional(v.union(v.literal('standard'), v.literal('extended'))),

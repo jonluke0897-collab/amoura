@@ -49,6 +49,10 @@ export const T4T_OPTIONS: readonly { value: T4TValue; label: string }[] = [
 ];
 
 // Intention chip labels map to schema literals.
+// NOTE: the `hookup` schema literal is intentionally omitted from the Phase 1 UI.
+// The schema keeps it for forward compatibility, but Phase 1 onboarding does not
+// expose sex-first framing (per vision doc § 4 anti-patterns). Re-expose in a
+// later phase only if advisors approve.
 export type IntentionValue =
   | 'serious'
   | 'dating'

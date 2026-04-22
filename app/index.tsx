@@ -26,5 +26,11 @@ export default function Index() {
       return <Redirect href="/(onboarding)/pledge" />;
     case 'complete':
       return <Redirect href="/(tabs)/browse" />;
+    default: {
+      // Exhaustiveness: adding a new OnboardingStep variant without a case here
+      // will surface as a compile-time error on this line.
+      const _exhaustive: never = route.step;
+      throw new Error(`Unhandled onboarding step: ${_exhaustive as string}`);
+    }
   }
 }

@@ -69,10 +69,12 @@ export const PHOTOS_SCREEN = {
 };
 
 export const PROMPTS_SCREEN = {
-  heading: 'Three prompts.',
-  subhead: 'Pick three. Keep it honest — this is how people get to know you.',
+  heading: 'Prompts, if you like.',
+  subhead:
+    "Pick up to three. Skip for now if you'd rather — profiles with 3 prompts tend to stand out.",
   pickCta: 'Pick a prompt',
   continueCta: 'Continue',
+  skipCta: 'Skip for now',
   saveCta: 'Save',
   characterLimit: 250,
   counterSuffix: '/250',
@@ -84,6 +86,11 @@ export const PROMPTS_SCREEN = {
   discardKeep: 'Keep editing',
   pickerTitle: 'Pick a prompt',
   pickerClose: 'Close',
+  changePromptLabel: 'Change prompt',
+  nudgeRemainingSingular: '1 more prompt to round out your profile',
+  nudgeRemainingPlural: '{n} more prompts to round out your profile',
+  nudgeBody: 'Profiles with 3 prompts stand out more.',
+  nudgeCta: 'Add prompts',
 };
 
 export const COMPLETE_SCREEN = {

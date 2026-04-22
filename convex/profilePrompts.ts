@@ -3,8 +3,6 @@ import { mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 
-const MIN_PHOTOS_FOR_COMPLETE = 2;
-const REQUIRED_PROMPT_ANSWERS = 3;
 const MAX_ANSWER_LENGTH = 250;
 const VALID_POSITIONS = new Set([0, 1, 2]);
 
@@ -134,29 +132,11 @@ export const answerPrompt = mutation({
       });
     }
 
-    // After-write gate: flip onboardingComplete exactly once when the user
-    // crosses into the "profile complete enough to be seen" state. This is the
-    // single authoritative setter for the boolean — acceptPledge no longer
-    // writes it.
-    const answerCount = slotRow ? existing.length : existing.length + 1;
-    if (!user.onboardingComplete && answerCount >= REQUIRED_PROMPT_ANSWERS) {
-      const photoCount = (
-        await ctx.db
-          .query('photos')
-          .withIndex('by_profile', (q) => q.eq('profileId', profile._id))
-          .collect()
-      ).length;
-      if (photoCount >= MIN_PHOTOS_FOR_COMPLETE) {
-        await ctx.db.patch(user._id, {
-          onboardingComplete: true,
-          lastActiveAt: now,
-        });
-      } else {
-        await ctx.db.patch(user._id, { lastActiveAt: now });
-      }
-    } else {
-      await ctx.db.patch(user._id, { lastActiveAt: now });
-    }
+    // Prompts are optional in onboarding — answering the third prompt no
+    // longer flips onboardingComplete. That bit is now owned by
+    // profiles.markOnboardingComplete (fired from complete.tsx and as a
+    // migration fallback from the profile tab).
+    await ctx.db.patch(user._id, { lastActiveAt: now });
 
     return savedId;
   },

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useAuth } from '@clerk/clerk-expo';
 import { X } from 'lucide-react-native';
 import { api } from '~/convex/_generated/api';
@@ -15,6 +15,17 @@ export default function ProfileTab() {
   const prompts = useQuery(api.profilePrompts.listMine) ?? [];
   const [sheetOpen, setSheetOpen] = useState(false);
   const { signOut } = useAuth();
+  const markOnboardingComplete = useMutation(api.profiles.markOnboardingComplete);
+
+  // Migration fallback: users who reached the tabs under old code with photos
+  // but no prompts have onboardingComplete=false. Fire the idempotent marker
+  // so their bit flips the first time they land here. markOnboardingComplete
+  // is no-op if already true or if the user doesn't yet meet the gate.
+  useEffect(() => {
+    if (me && me.user && !me.user.onboardingComplete) {
+      markOnboardingComplete().catch(() => {});
+    }
+  }, [me, markOnboardingComplete]);
 
   if (me === undefined) {
     return <View className="flex-1 bg-cream-50" />;
@@ -66,6 +77,12 @@ export default function ProfileTab() {
         }))}
         variant="self"
         onEdit={() => setSheetOpen(true)}
+        onAddPrompts={() =>
+          router.push({
+            pathname: '/(onboarding)/prompts',
+            params: { mode: 'edit' },
+          })
+        }
       />
 
       <Modal

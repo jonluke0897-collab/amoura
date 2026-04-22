@@ -12,7 +12,6 @@ type OnboardingStep =
   | 'complete';
 
 const MIN_PHOTOS_FOR_COMPLETE = 2;
-const REQUIRED_PROMPT_ANSWERS = 3;
 
 function nextStep(
   user: Doc<'users'>,
@@ -31,7 +30,10 @@ function nextStep(
   // base timestamp was set (e.g. migrations from an older schema).
   if (user.isCis === true && !user.extendedPledgeCompletedAt) return 'pledge';
   if (counts.photoCount < MIN_PHOTOS_FOR_COMPLETE) return 'photos';
-  if (counts.promptAnswerCount < REQUIRED_PROMPT_ANSWERS) return 'prompts';
+  // Prompts are optional in onboarding: the user sees the prompts step once
+  // (photos.tsx → prompts.tsx) but can skip it and still complete. We don't
+  // re-route them there on subsequent launches even if promptAnswerCount < 3;
+  // the profile-tab nudge handles encouragement post-onboarding.
   return 'complete';
 }
 
@@ -227,6 +229,46 @@ export const acceptPledge = mutation({
     });
 
     return profile._id;
+  },
+});
+
+/**
+ * Idempotently flip users.onboardingComplete to true. Called from
+ * complete.tsx and as a migration fallback from the profile tab. The gate on
+ * photoCount >= 2 keeps a misrouted caller from prematurely completing a user
+ * who doesn't actually have a shippable profile yet. Prompts are optional;
+ * they are not part of this gate.
+ */
+export const markOnboardingComplete = mutation({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error('Not authenticated');
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+    if (!user) throw new Error('User not found');
+    if (user.onboardingComplete) return;
+
+    const profile = await ctx.db
+      .query('profiles')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .unique();
+    if (!profile) return;
+
+    const photoCount = (
+      await ctx.db
+        .query('photos')
+        .withIndex('by_profile', (q) => q.eq('profileId', profile._id))
+        .collect()
+    ).length;
+    if (photoCount < MIN_PHOTOS_FOR_COMPLETE) return;
+
+    await ctx.db.patch(user._id, {
+      onboardingComplete: true,
+      lastActiveAt: Date.now(),
+    });
   },
 });
 

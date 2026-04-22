@@ -11,8 +11,6 @@ import { PromptAnswerEditor } from '~/src/features/prompts/PromptAnswerEditor';
 import { PROMPTS_SCREEN } from '~/src/features/onboarding/onboardingCopy';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 
-const REQUIRED = 3;
-
 type SlotState =
   | { open: false }
   | { open: true; position: number; prompt: PromptSummary; initialText: string };
@@ -38,7 +36,14 @@ export default function PromptsScreen() {
       [0, 1, 2].map((pos) => myAnswers.find((a) => a.position === pos)),
     [myAnswers],
   );
-  const alreadyAnsweredIds = myAnswers.map((a) => a.promptId);
+
+  // Picker's disabled set excludes the slot currently being swapped from, so
+  // the user can re-pick the same prompt without hitting the "already
+  // answered" gate. The server still rejects true duplicates across other
+  // positions.
+  const pickerDisabledIds = myAnswers
+    .filter((a) => a.position !== pickerOpen.position)
+    .map((a) => a.promptId);
 
   const openPicker = (position: number) =>
     setPickerOpen({ open: true, position });
@@ -62,6 +67,13 @@ export default function PromptsScreen() {
     });
   };
 
+  const changePromptFromEditor = () => {
+    if (!editorState.open) return;
+    const pos = editorState.position;
+    setEditorState({ open: false });
+    setPickerOpen({ open: true, position: pos });
+  };
+
   const handleSave = async (text: string) => {
     if (!editorState.open) return;
     setSubmitting(true);
@@ -79,10 +91,18 @@ export default function PromptsScreen() {
     }
   };
 
-  const canContinue = myAnswers.length >= REQUIRED && !submitting;
+  const answerCount = myAnswers.length;
+  const continueLabel = isEditMode
+    ? PROMPTS_SCREEN.saveCta
+    : answerCount === 0
+      ? PROMPTS_SCREEN.skipCta
+      : PROMPTS_SCREEN.continueCta;
 
   const handleContinue = () => {
-    track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step: 'prompts' });
+    track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, {
+      step: 'prompts',
+      answeredCount: answerCount,
+    });
     if (isEditMode) router.back();
     else router.replace('/(onboarding)/complete');
   };
@@ -138,9 +158,10 @@ export default function PromptsScreen() {
       </ScrollView>
 
       <Button
-        label={isEditMode ? PROMPTS_SCREEN.saveCta : PROMPTS_SCREEN.continueCta}
+        label={continueLabel}
         size="lg"
-        disabled={!canContinue}
+        variant={answerCount === 0 && !isEditMode ? 'secondary' : 'primary'}
+        disabled={submitting}
         onPress={handleContinue}
         className="my-4"
       />
@@ -148,7 +169,7 @@ export default function PromptsScreen() {
       <PromptPicker
         visible={pickerOpen.open}
         prompts={activePrompts}
-        alreadyAnsweredIds={alreadyAnsweredIds}
+        alreadyAnsweredIds={pickerDisabledIds}
         onPick={handlePromptPick}
         onClose={() => setPickerOpen({ open: false, position: 0 })}
       />
@@ -162,6 +183,7 @@ export default function PromptsScreen() {
           submitting={submitting}
           onCancel={() => setEditorState({ open: false })}
           onSave={handleSave}
+          onChangePrompt={changePromptFromEditor}
         />
       )}
     </View>

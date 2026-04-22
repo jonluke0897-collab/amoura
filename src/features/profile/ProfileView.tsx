@@ -3,11 +3,15 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Pencil } from 'lucide-react-native';
 import type { Id } from '~/convex/_generated/dataModel';
 import { Text } from '~/src/components/ui/Text';
+import { Button } from '~/src/components/ui/Button';
 import { PhotoCarousel, type CarouselPhoto } from '~/src/features/profile/PhotoCarousel';
 import { PhotoFullScreen } from '~/src/features/photos/PhotoFullScreen';
 import { PromptCard } from '~/src/features/profile/PromptCard';
 import { VerificationBadge } from '~/src/features/photos/VerificationBadge';
 import { interleave } from '~/src/features/profile/interleave';
+import { PROMPTS_SCREEN } from '~/src/features/onboarding/onboardingCopy';
+
+const PROMPTS_TARGET = 3;
 
 export type ProfileViewPhoto = CarouselPhoto & {
   isVerified?: boolean;
@@ -31,6 +35,7 @@ export type ProfileViewProps = {
   prompts: ProfileViewPrompt[];
   variant?: 'self' | 'public';
   onEdit?: () => void;
+  onAddPrompts?: () => void;
   bottomSlot?: ReactNode;
 };
 
@@ -55,12 +60,19 @@ export function ProfileView({
   prompts,
   variant = 'self',
   onEdit,
+  onAddPrompts,
   bottomSlot,
 }: ProfileViewProps) {
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
   // Hero = first photo; remaining photos interleave with prompts below.
   const [hero, ...rest] = photos;
   const body = interleave<ProfileViewPhoto, ProfileViewPrompt>(rest, prompts);
+  const remainingPrompts = Math.max(0, PROMPTS_TARGET - prompts.length);
+  const showNudge = variant === 'self' && remainingPrompts > 0 && !!onAddPrompts;
+  const nudgeTitle =
+    remainingPrompts === 1
+      ? PROMPTS_SCREEN.nudgeRemainingSingular
+      : PROMPTS_SCREEN.nudgeRemainingPlural.replace('{n}', String(remainingPrompts));
 
   return (
     <View className="flex-1 bg-cream-50">
@@ -121,6 +133,22 @@ export function ProfileView({
             {intentions.map((i) => (
               <Chip key={i} label={i.replace(/-/g, ' ')} />
             ))}
+          </View>
+        )}
+
+        {showNudge && (
+          <View className="mx-5 mt-4 mb-1 rounded-md border border-dashed border-plum-400 p-4">
+            <Text variant="heading" className="text-lg text-plum-600 mb-2">
+              {nudgeTitle}
+            </Text>
+            <Text variant="body" className="text-sm text-plum-900 mb-3">
+              {PROMPTS_SCREEN.nudgeBody}
+            </Text>
+            <Button
+              label={PROMPTS_SCREEN.nudgeCta}
+              variant="secondary"
+              onPress={onAddPrompts}
+            />
           </View>
         )}
 

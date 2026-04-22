@@ -24,6 +24,12 @@ export type PromptAnswerEditorProps = {
   submitting?: boolean;
   onCancel: () => void;
   onSave: (text: string) => void;
+  /**
+   * Optional: when supplied, renders a "Change prompt" link that lets the
+   * user swap the prompt at this slot. Used by the edit flow; omitted in the
+   * onboarding new-answer flow so users don't accidentally wander off-prompt.
+   */
+  onChangePrompt?: () => void;
 };
 
 export function PromptAnswerEditor({
@@ -34,6 +40,7 @@ export function PromptAnswerEditor({
   submitting,
   onCancel,
   onSave,
+  onChangePrompt,
 }: PromptAnswerEditorProps) {
   const [text, setText] = useState(initialText);
   const inputRef = useRef<TextInput>(null);
@@ -82,9 +89,27 @@ export function PromptAnswerEditor({
               <X color="#6D28D9" size={24} />
             </Pressable>
           </View>
-          <Text variant="heading" className="text-2xl text-plum-900 mb-5 leading-8">
+          <Text
+            variant="heading"
+            className={cn(
+              'text-2xl text-plum-900 leading-8',
+              onChangePrompt ? 'mb-2' : 'mb-5',
+            )}
+          >
             {question}
           </Text>
+          {onChangePrompt && (
+            <Pressable
+              onPress={onChangePrompt}
+              accessibilityRole="button"
+              hitSlop={6}
+              className="mb-4 self-start"
+            >
+              <Text variant="body" className="text-sm text-plum-600 underline">
+                {PROMPTS_SCREEN.changePromptLabel}
+              </Text>
+            </Pressable>
+          )}
 
           <TextInput
             ref={inputRef}

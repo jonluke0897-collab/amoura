@@ -28,7 +28,7 @@ export default function PledgeExitScreen() {
 
   return (
     <View className="flex-1 px-5 pt-4 justify-center">
-      <Text variant="heading" className="text-3xl text-plum-900 mb-4 leading-9">
+      <Text variant="heading" className="text-3xl text-plum-900 mb-6 leading-10">
         {PLEDGE_EXIT_HEADING}
       </Text>
       <Text variant="body" className="text-base text-plum-900 leading-6 mb-10">

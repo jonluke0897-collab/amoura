@@ -28,10 +28,11 @@ type ChoiceButtonProps = {
   label: string;
   variant: 'agree' | 'disagree';
   selected: boolean;
+  disabled?: boolean;
   onPress: () => void;
 };
 
-function ChoiceButton({ label, variant, selected, onPress }: ChoiceButtonProps) {
+function ChoiceButton({ label, variant, selected, disabled = false, onPress }: ChoiceButtonProps) {
   // Selected states use filled colors (plum for agree, rose for disagree).
   // Unselected state is a soft outline so both choices feel equally available
   // — we deliberately don't pre-select "agree" to avoid a nudge.
@@ -46,11 +47,13 @@ function ChoiceButton({ label, variant, selected, onPress }: ChoiceButtonProps) 
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
       className={cn(
         'flex-1 items-center justify-center h-12 rounded-md border',
         selected ? selectedClass : unselectedClass,
+        disabled && 'opacity-50',
       )}
     >
       <Text
@@ -136,12 +139,14 @@ export function RespectPledgeExtended({
                     label={EXTENDED_PLEDGE_AGREE_LABEL}
                     variant="agree"
                     selected={choice === 'agree'}
+                    disabled={submitting}
                     onPress={() => setAt(i, 'agree')}
                   />
                   <ChoiceButton
                     label={EXTENDED_PLEDGE_DISAGREE_LABEL}
                     variant="disagree"
                     selected={choice === 'disagree'}
+                    disabled={submitting}
                     onPress={() => setAt(i, 'disagree')}
                   />
                 </View>

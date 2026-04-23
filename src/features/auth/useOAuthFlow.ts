@@ -15,19 +15,21 @@ const OAUTH_REDIRECT_URL = Linking.createURL('/', { scheme: 'amoura' });
 export type OAuthMethod = 'apple' | 'google';
 
 /**
- * Clerk returns a structured error object with `errors[]`; "user does not
- * exist for this identifier" is signalled by `form_identifier_not_found`.
- * We use this to decide whether the email flow should transparently fall
- * through from sign-in to sign-up.
+ * Clerk returns a structured error object with `errors[]`. We branch on
+ * specific codes rather than message text — message copy is prone to
+ * wording changes between Clerk releases.
  */
-function isUserNotFoundError(e: unknown): boolean {
+function hasErrorCode(e: unknown, code: string): boolean {
   if (!e || typeof e !== 'object') return false;
   const errors = (e as { errors?: Array<{ code?: string }> }).errors;
-  return (
-    Array.isArray(errors) &&
-    errors.some((err) => err?.code === 'form_identifier_not_found')
-  );
+  return Array.isArray(errors) && errors.some((err) => err?.code === code);
 }
+
+const isUserNotFoundError = (e: unknown) =>
+  hasErrorCode(e, 'form_identifier_not_found');
+
+const isIncorrectCodeError = (e: unknown) =>
+  hasErrorCode(e, 'form_code_incorrect');
 
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
@@ -109,9 +111,14 @@ export function useOAuthFlow() {
 
   // Verify the 6-digit code against whichever flow (signIn / signUp) sent
   // it. Both paths end with setActive on success so the rest of the app
-  // sees a normal authenticated session.
+  // sees a normal authenticated session. `invalid_code` is surfaced as a
+  // first-class status (rather than a generic thrown error) so the caller
+  // can show the specific "wrong code" message without message-string
+  // sniffing.
   const verifyEmailCode = useCallback(
-    async (code: string): Promise<{ status: 'complete' | 'incomplete' }> => {
+    async (
+      code: string,
+    ): Promise<{ status: 'complete' | 'incomplete' | 'invalid_code' }> => {
       const trimmed = code.trim();
       if (!trimmed) throw new Error('Enter the code from your email');
       if (!signIn || !signUp || !setActive) {
@@ -123,9 +130,22 @@ export function useOAuthFlow() {
 
       setBusy('email');
       try {
-        if (modeRef.current === 'signIn') {
-          const attempt = await signIn.attemptFirstFactor({
-            strategy: 'email_code',
+        try {
+          if (modeRef.current === 'signIn') {
+            const attempt = await signIn.attemptFirstFactor({
+              strategy: 'email_code',
+              code: trimmed,
+            });
+            if (attempt.status === 'complete' && attempt.createdSessionId) {
+              await setActive({ session: attempt.createdSessionId });
+              modeRef.current = null;
+              return { status: 'complete' };
+            }
+            return { status: 'incomplete' };
+          }
+
+          // signUp branch
+          const attempt = await signUp.attemptEmailAddressVerification({
             code: trimmed,
           });
           if (attempt.status === 'complete' && attempt.createdSessionId) {
@@ -134,18 +154,12 @@ export function useOAuthFlow() {
             return { status: 'complete' };
           }
           return { status: 'incomplete' };
+        } catch (e) {
+          if (isIncorrectCodeError(e)) {
+            return { status: 'invalid_code' };
+          }
+          throw e;
         }
-
-        // signUp branch
-        const attempt = await signUp.attemptEmailAddressVerification({
-          code: trimmed,
-        });
-        if (attempt.status === 'complete' && attempt.createdSessionId) {
-          await setActive({ session: attempt.createdSessionId });
-          modeRef.current = null;
-          return { status: 'complete' };
-        }
-        return { status: 'incomplete' };
       } finally {
         setBusy(null);
       }

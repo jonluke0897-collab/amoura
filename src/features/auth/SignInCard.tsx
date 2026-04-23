@@ -83,20 +83,20 @@ export function SignInCard() {
         setEmailSheetOpen(false);
         resetSheet();
         router.replace('/');
+      } else if (result.status === 'invalid_code') {
+        // The hook detected Clerk's `form_code_incorrect`; surface the
+        // typed message without message-string sniffing.
+        track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email' });
+        setError(SIGN_IN.emailCodeInvalid);
       } else {
-        // Clerk returned a non-complete status (e.g. second factor needed).
-        // We don't support 2FA yet; surface a generic ask-to-retry.
+        // 'incomplete' — Clerk returned a non-complete status (e.g. second
+        // factor needed). We don't support 2FA yet; surface a generic
+        // ask-to-retry.
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {
       track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email' });
-      setError(
-        e instanceof Error && e.message.toLowerCase().includes('incorrect')
-          ? SIGN_IN.emailCodeInvalid
-          : e instanceof Error
-            ? e.message
-            : 'Could not verify the code. Try again?',
-      );
+      setError(e instanceof Error ? e.message : 'Could not verify the code. Try again?');
     }
   };
 

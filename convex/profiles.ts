@@ -472,8 +472,14 @@ export const listFeed = query({
     const intentionsFilterRaw = filters.intentions ?? viewerProfile.intentions;
     const intentionsFilter = intentionsFilterRaw.length > 0 ? intentionsFilterRaw : null;
 
-    const ageMin = clampAge(filters.ageMin ?? viewerProfile.ageMin ?? MIN_AGE);
-    const ageMax = clampAge(filters.ageMax ?? viewerProfile.ageMax ?? MAX_AGE);
+    const rawAgeMin = clampAge(filters.ageMin ?? viewerProfile.ageMin ?? MIN_AGE);
+    const rawAgeMax = clampAge(filters.ageMax ?? viewerProfile.ageMax ?? MAX_AGE);
+    // Swap silently if bounds are inverted. updatePreferences rejects
+    // inverted writes, so this is defensive against legacy rows or a
+    // stale client payload — throwing here would just empty the feed,
+    // which is the worse UX.
+    const [ageMin, ageMax] =
+      rawAgeMin <= rawAgeMax ? [rawAgeMin, rawAgeMax] : [rawAgeMax, rawAgeMin];
 
     // Blocks both directions. Set keys are userId strings; Id<'users'> is a
     // branded string so conversion is implicit.
@@ -506,7 +512,16 @@ export const listFeed = query({
     const page: FeedItem[] = [];
     for (const target of paged.page) {
       if (blockedIds.has(target.userId)) continue;
+      // Viewer-side filter: viewer with t4t-only preference hides cis
+      // candidates.
       if (t4tOnly && target.genderModality === 'cis') continue;
+      // Candidate-side filter: a candidate who set t4t-only is hidden from
+      // cis viewers entirely. The mutual-filter is a safety rule from the
+      // vision doc — if one side has opted out, the card must not appear
+      // for the other, regardless of which side the filter came from.
+      if (target.t4tPreference === 't4t-only' && viewer.isCis === true) {
+        continue;
+      }
       if (
         intentionsFilter &&
         !target.intentions.some((i) => intentionsFilter.includes(i))
@@ -541,9 +556,15 @@ export const listFeed = query({
       if (topAnswer) {
         const promptDoc = await ctx.db.get(topAnswer.promptId);
         if (promptDoc) {
+          // Audio-first answers store the transcript separately; fall
+          // back to it so an audio prompt still surfaces a preview
+          // string instead of an empty card.
           topPrompt = {
             question: promptDoc.question,
-            answerText: topAnswer.answerText ?? '',
+            answerText:
+              topAnswer.answerText ??
+              topAnswer.answerAudioTranscript ??
+              '',
           };
         }
       }

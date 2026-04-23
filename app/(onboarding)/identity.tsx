@@ -15,10 +15,11 @@ export default function IdentityScreen() {
   const [error, setError] = useState<string | null>(null);
   const track = useTrack();
 
-  // Wait for the initial profile snapshot in edit mode so we can pre-fill the
-  // form. Skipping this would flash an empty form, then re-render with values
-  // once the query lands.
-  if (isEditMode && me === undefined) {
+  // Wait for the initial profile snapshot in edit mode so we can pre-fill
+  // the form. undefined = still loading; null = auth ok but users row not
+  // synced yet (Clerk webhook race). Both are "not ready" — don't flash an
+  // empty form.
+  if (isEditMode && !me) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator color="#6D28D9" />
@@ -54,7 +55,9 @@ export default function IdentityScreen() {
               orientation: values.orientation,
               t4tPreference: values.t4tPreference,
             });
-            track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step: 'identity' });
+            // Only emit funnel events during real onboarding; edits from the
+            // profile tab shouldn't show up as repeated step completions.
+            if (!isEditMode) track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step: 'identity' });
             if (isEditMode) router.back();
             else router.replace('/(onboarding)/intentions');
           } catch (e) {

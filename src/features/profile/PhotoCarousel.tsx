@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   Pressable,
   View,
+  useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -30,7 +30,10 @@ export function PhotoCarousel({
 }: PhotoCarouselProps) {
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<CarouselPhoto>>(null);
-  const width = Dimensions.get('window').width;
+  // useWindowDimensions reacts to orientation/resize; Dimensions.get('window')
+  // would cache the value at first render. App is locked to portrait today,
+  // but keeping this reactive is cheap insurance.
+  const { width } = useWindowDimensions();
   const height = width / aspectRatio;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {

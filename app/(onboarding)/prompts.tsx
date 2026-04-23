@@ -157,10 +157,12 @@ export default function PromptsScreen() {
       : PROMPTS_SCREEN.continueCta;
 
   const handleContinue = () => {
-    track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, {
-      step: 'prompts',
-      answeredCount: answerCount,
-    });
+    if (!isEditMode) {
+      track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, {
+        step: 'prompts',
+        answeredCount: answerCount,
+      });
+    }
     if (isEditMode) router.back();
     else router.replace('/(onboarding)/complete');
   };

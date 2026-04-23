@@ -341,10 +341,16 @@ export const getPublic = query({
     const prompts = [];
     for (const a of answerDocs) {
       const prompt = await ctx.db.get(a.promptId);
+      // Skip answers whose prompt has been deactivated/deleted upstream —
+      // showing an empty question+category pill on someone else's profile
+      // leaks the fact that their prompt got retired and looks broken. The
+      // onboarding editor has its own fallback (cached question on the row)
+      // so users can still edit/remove their side.
+      if (!prompt) continue;
       prompts.push({
         _id: a._id,
-        question: prompt?.question ?? '',
-        category: prompt?.category ?? '',
+        question: prompt.question,
+        category: prompt.category,
         answerText: a.answerText ?? '',
         position: a.position,
       });

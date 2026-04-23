@@ -89,6 +89,21 @@ export function PromptAnswerEditor({
     ]);
   };
 
+  // Swapping prompts throws away whatever's in the input, so route the
+  // request through the same discard confirmation as the close button.
+  const requestChangePrompt = () => {
+    if (!onChangePrompt) return;
+    if (!isDirty) return onChangePrompt();
+    Alert.alert(PROMPTS_SCREEN.discardTitle, PROMPTS_SCREEN.discardBody, [
+      { text: PROMPTS_SCREEN.discardKeep, style: 'cancel' },
+      {
+        text: PROMPTS_SCREEN.discardConfirm,
+        style: 'destructive',
+        onPress: onChangePrompt,
+      },
+    ]);
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={confirmDiscard}>
       <KeyboardAvoidingView
@@ -125,7 +140,7 @@ export function PromptAnswerEditor({
           </Text>
           {onChangePrompt && (
             <Pressable
-              onPress={onChangePrompt}
+              onPress={requestChangePrompt}
               accessibilityRole="button"
               hitSlop={6}
               className="mb-4 self-start"

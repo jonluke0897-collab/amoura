@@ -153,9 +153,9 @@ export function ProfileView({
         )}
 
         <View className="pt-3">
-          {body.map((item, i) =>
+          {body.map((item) =>
             item.type === 'photo' ? (
-              <View key={`photo-${item.item._id}-${i}`} className="px-5 my-2">
+              <View key={`photo-${item.item._id}`} className="px-5 my-2">
                 <Pressable
                   onPress={() => {
                     // Find index of this photo in the full photos array so
@@ -171,7 +171,7 @@ export function ProfileView({
               </View>
             ) : (
               <PromptCard
-                key={`prompt-${item.item._id}-${i}`}
+                key={`prompt-${item.item._id}`}
                 question={item.item.question}
                 category={item.item.category}
                 answerText={item.item.answerText}

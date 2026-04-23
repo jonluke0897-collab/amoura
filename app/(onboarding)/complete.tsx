@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation } from 'convex/react';
@@ -13,14 +13,19 @@ export default function CompleteScreen() {
   const track = useTrack();
   const markOnboardingComplete = useMutation(api.profiles.markOnboardingComplete);
 
-  // Complete screen is the true onboarding terminus — photos have landed and
-  // the user has passed through the optional prompts step. Fire analytics +
-  // flip onboardingComplete on the server here (idempotent; swallow errors
-  // so network blips don't block the CTA).
+  // useTrack returns a fresh fn identity each render, and useMutation can too;
+  // if either ends up as a dep the effect would re-fire and emit duplicate
+  // ONBOARDING_COMPLETED events plus a second idempotent mutation. Refs keep
+  // the mount-once semantics without stale-closure risk.
+  const trackRef = useRef(track);
+  trackRef.current = track;
+  const markRef = useRef(markOnboardingComplete);
+  markRef.current = markOnboardingComplete;
+
   useEffect(() => {
-    track(AnalyticsEvents.ONBOARDING_COMPLETED);
-    markOnboardingComplete().catch(() => {});
-  }, [track, markOnboardingComplete]);
+    trackRef.current(AnalyticsEvents.ONBOARDING_COMPLETED);
+    markRef.current().catch(() => {});
+  }, []);
 
   return (
     <View className="flex-1 px-5 pt-4 justify-center">

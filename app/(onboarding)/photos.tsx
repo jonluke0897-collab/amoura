@@ -22,7 +22,14 @@ export default function PhotosScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const isEditMode = params.mode === 'edit';
 
-  const photos = useQuery(api.photos.listMine) ?? [];
+  // Keep the raw query result so we can distinguish "still loading" from
+  // "user has no photos yet." The server enforces the 6-cap regardless, but
+  // during a stale-[] window the client could fire multiple generateUploadUrl
+  // calls that all fail at finalizeUpload. Gating opens only after the query
+  // resolves keeps that from happening.
+  const photosQuery = useQuery(api.photos.listMine);
+  const photos = photosQuery ?? [];
+  const photosReady = photosQuery !== undefined;
   const generateUploadUrl = useMutation(api.photos.generateUploadUrl);
   const finalizeUpload = useMutation(api.photos.finalizeUpload);
   const removePhoto = useMutation(api.photos.remove);
@@ -35,6 +42,7 @@ export default function PhotosScreen() {
   const continueInFlight = useRef(false);
 
   const openPicker = () => {
+    if (!photosReady) return;
     if (photos.length + uploadingCount >= MAX_PHOTOS) return;
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -134,7 +142,7 @@ export default function PhotosScreen() {
   const handleContinue = () => {
     if (continueInFlight.current) return;
     continueInFlight.current = true;
-    track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step: 'photos' });
+    if (!isEditMode) track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step: 'photos' });
     if (isEditMode) router.back();
     else router.replace('/(onboarding)/prompts');
   };

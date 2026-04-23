@@ -162,43 +162,43 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 2. Then read only the Reference sections listed above. Continue from the first unchecked task. After each task, mark it complete in the roadmap. When all tasks are done, create a branch `phase-2/profile-creation`, commit, push, and open a PR for review."
 
-- [ ] **TASK-027** — Install expo-image-picker and expo-image, request permissions
+- [x] **TASK-027** — Install expo-image-picker and expo-image, request permissions
   Files: `src/features/photos/usePhotoPicker.ts`, `app.config.ts`, `package.json`
   Notes: `npx expo install expo-image-picker expo-image expo-image-manipulator`. Add iOS `NSPhotoLibraryUsageDescription` and `NSCameraUsageDescription` with warm copy ("We need access to your photos so you can share your best self"). Hook returns `{ pickFromLibrary, pickFromCamera, cropped }`. Verify: library picker opens on device; permission prompt text matches the warm copy.
 
-- [ ] **TASK-028** — Build Convex file storage upload flow with signed URLs
+- [x] **TASK-028** — Build Convex file storage upload flow with signed URLs
   Files: `convex/photos.ts`, `convex/schema.ts`
   Notes: Implement `photos.generateUploadUrl` (returns Convex storage upload URL), `photos.finalizeUpload` (records storageId + width/height + order in photos table), `photos.remove`, `photos.reorder`. Per § 4 API Specification. Validate ctx.auth. Set max 6 photos per user in `finalizeUpload`. Verify: a photo uploaded from the app appears in Convex storage and is linked in the photos table.
 
-- [ ] **TASK-029** — Build the Photos onboarding/edit screen with drag-to-reorder grid
+- [x] **TASK-029** — Build the Photos onboarding/edit screen with drag-to-reorder grid
   Files: `app/(onboarding)/photos.tsx`, `src/features/photos/PhotoGrid.tsx`, `src/features/photos/PhotoSlot.tsx`
   Notes: Per § 8 Photos screen and FR-009/FR-010. 2-column grid with 6 slots, empty slots show a dashed border and "+" icon. Long-press to reorder using `react-native-draggable-flatlist`. Tapping a filled slot shows a remove option. Minimum 2 photos to continue. Client-side HEIC→JPEG conversion via expo-image-manipulator, max 2048px long edge, quality 0.85. Verify: uploading, reordering, and removing all persist to Convex and survive app restart.
 
-- [ ] **TASK-030** — Build the Prompts onboarding/edit screen
+- [x] **TASK-030** — Build the Prompts onboarding/edit screen
   Files: `app/(onboarding)/prompts.tsx`, `src/features/prompts/PromptPicker.tsx`, `src/features/prompts/PromptAnswerEditor.tsx`, `convex/profilePrompts.ts`
   Notes: Per § 8 Prompts screen and FR-011/FR-012. User picks 3 prompts from a scrollable list of all active prompts (show category labels). For each, a full-screen editor with a 250-char limit, live counter, and a "save" CTA. Store answers in `profilePrompts` table with order 0/1/2. Minimum 3 answered to continue. Verify: 3 prompt-answers persist with the correct order.
 
-- [ ] **TASK-031** — Build the Profile tab (self-view) showing the completed profile
+- [x] **TASK-031** — Build the Profile tab (self-view) showing the completed profile
   Files: `app/(tabs)/profile.tsx`, `src/features/profile/ProfileView.tsx`, `src/features/profile/PhotoCarousel.tsx`, `src/features/profile/PromptCard.tsx`
   Notes: Per § 8 Profile screen. Scrollable view alternating photos and prompt cards (photo-prompt-photo-prompt-photo-prompt). Matches the exact layout others will see — no separate "preview" mode. Edit button in top-right opens an edit sheet with links to photos/prompts/intentions editors. Verify: visual matches the PRD spec; edits from the sheet reflect immediately (Convex reactivity).
 
-- [ ] **TASK-032** — Build a standalone Profile Detail view (used when viewing others)
+- [x] **TASK-032** — Build a standalone Profile Detail view (used when viewing others)
   Files: `src/features/profile/ProfileDetailScreen.tsx`, `app/profile/[userId].tsx`
   Notes: Per § 8 Profile Detail. Identical layout to the self-view Profile tab but read-only, with action buttons at the bottom (placeholder for like-with-comment in Phase 4). Takes `userId` param, fetches via `profiles.getPublic({ userId })`. Show pronouns, age, distance (mocked for now), intentions as chips. Verify: opening any profile route renders the read-only view.
 
-- [ ] **TASK-033** — Implement profiles.getPublic query with field-level privacy
+- [x] **TASK-033** — Implement profiles.getPublic query with field-level privacy
   Files: `convex/profiles.ts`
   Notes: Returns only public fields: displayName, age, pronouns, photos (resolved URLs), prompts, intentions, identityLabel (user-chosen), city. Does NOT return: email, phone, legal name, verification status, pledge timestamps, blocked/blocking lists. Per § 4 API Specification. Verify: calling from a signed-in user returns the subset; sensitive fields are absent from the returned object.
 
-- [ ] **TASK-034** — Build photo carousel with pinch-zoom and full-screen view
+- [x] **TASK-034** — Build photo carousel with pinch-zoom and full-screen view
   Files: `src/features/photos/PhotoCarousel.tsx`, `src/features/photos/PhotoFullScreen.tsx`
   Notes: Horizontal swipe between photos in the profile view, pagination dots at bottom. Tap to open full-screen with pinch-zoom using `react-native-reanimated` + `react-native-gesture-handler`. Swipe down to dismiss. Verify: smooth 60fps swipe between 6 photos; full-screen zoom works.
 
-- [ ] **TASK-035** — Add photo verification placeholder (hook for Phase 5)
+- [x] **TASK-035** — Add photo verification placeholder (hook for Phase 5)
   Files: `src/features/photos/VerificationBadge.tsx`, `convex/verifications.ts`
   Notes: Stub the `verifications` table row creation and a UI badge component ("verified" check icon in plum). Don't wire Rekognition yet (Phase 5). For now, always render unverified. Verify: badge component renders correctly with both states for QA.
 
-- [ ] **TASK-036** — Phase 2 review PR
+- [x] **TASK-036** — Phase 2 review PR
   Files: branch `phase-2/profile-creation`
   Notes: Commit, push, open PR "Phase 2: Profile Creation". Attach screen recording. Let CodeRabbit review. Merge when clean. Verify: after merge, a brand-new test account can complete sign-up → onboarding → photos → prompts and see their profile.
 

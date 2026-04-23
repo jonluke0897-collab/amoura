@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -22,6 +22,16 @@ export function SignInCard() {
   const [emailSheetOpen, setEmailSheetOpen] = useState(false);
   const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
   const [step, setStep] = useState<Step>('email');
+  // Delayed-reset timer handle. Stored in a ref so closeEmailSheet →
+  // openEmailSheet within the 200ms window can cancel the stale timer
+  // before it wipes the user's fresh input.
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    },
+    [],
+  );
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -101,6 +111,10 @@ export function SignInCard() {
   };
 
   const openEmailSheet = () => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
     resetSheet();
     setEmailSheetOpen(true);
   };
@@ -108,8 +122,13 @@ export function SignInCard() {
   const closeEmailSheet = () => {
     setEmailSheetOpen(false);
     // Delay reset so the sheet animates out first — otherwise the user
-    // sees the email step flash back as the modal closes.
-    setTimeout(resetSheet, 200);
+    // sees the email step flash back as the modal closes. Clear any
+    // prior pending reset so successive close calls don't stack.
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => {
+      resetSheet();
+      resetTimerRef.current = null;
+    }, 200);
   };
 
   return (

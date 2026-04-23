@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { X } from 'lucide-react-native';
@@ -28,6 +28,10 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Delayed-reset timer handle. Stored in a ref so a close → reopen
+  // within the 200ms window can cancel the stale timer before it wipes
+  // the user's new input.
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reset = () => {
     setEmail('');
@@ -35,11 +39,26 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
     setError(null);
   };
 
+  // Cancel any pending reset when the sheet reopens, and on unmount.
+  useEffect(() => {
+    if (visible && resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, [visible]);
+
   const handleClose = () => {
     onClose();
     // Delay reset so the sheet animates out before the fields clear —
     // avoids the flash of empty inputs mid-dismiss.
-    setTimeout(reset, 200);
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => {
+      reset();
+      resetTimerRef.current = null;
+    }, 200);
   };
 
   const handleSubmit = async () => {

@@ -185,10 +185,13 @@ export function useOAuthFlow() {
 
       setBusy('email');
       try {
+        // Clerk's legacy sign-in `create` takes identifier + password
+        // directly — there is no `strategy` parameter on this method
+        // signature. Passing one is typed-but-unsupported; dropping it
+        // keeps the runtime shape aligned with Clerk's API.
         const attempt = await signIn.create({
           identifier,
           password,
-          strategy: 'password',
         });
         if (attempt.status === 'complete' && attempt.createdSessionId) {
           await setActive({ session: attempt.createdSessionId });

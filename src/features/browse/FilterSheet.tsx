@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Pressable, ScrollView, Switch, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useMutation, useQuery } from 'convex/react';
 import { X } from 'lucide-react-native';
 import { api } from '~/convex/_generated/api';
 import { Text } from '~/src/components/ui/Text';
 import { Button } from '~/src/components/ui/Button';
+import { BottomSheet } from '~/src/components/ui/BottomSheet';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 
 const INTENTION_OPTIONS: { id: IntentionValue; label: string }[] = [
@@ -148,38 +149,32 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
   };
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+      onClose={onClose}
+      dismissible={!saving}
+      header={
+        <View className="flex-row items-center justify-between px-5 pb-2 pt-1">
+          <Text variant="heading" className="text-2xl text-plum-900">
+            Filters
+          </Text>
+          <Pressable
+            onPress={saving ? undefined : onClose}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel="Close filters"
+            accessibilityState={{ disabled: saving }}
+            hitSlop={12}
+          >
+            <X color={saving ? '#A78BFA' : '#6D28D9'} size={22} />
+          </Pressable>
+        </View>
+      }
     >
-      <View className="flex-1 bg-plum-900/40 justify-end">
-        <Pressable
-          className="absolute inset-0"
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close filters"
-        />
-        <View className="bg-cream-50 rounded-t-lg max-h-[85%] pt-2 shadow-modal">
-          <View className="items-center pb-2">
-            <View className="w-10 h-1 rounded-full bg-plum-50" />
-          </View>
-          <View className="flex-row items-center justify-between px-5 pb-2">
-            <Text variant="heading" className="text-2xl text-plum-900">
-              Filters
-            </Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close filters"
-              hitSlop={12}
-            >
-              <X color="#6D28D9" size={22} />
-            </Pressable>
-          </View>
-
-          <ScrollView contentContainerStyle={{ paddingBottom: 16 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 16 }}
+      >
             <Section title="Age range">
               <View className="flex-row justify-between mb-1">
                 <Text variant="body" className="text-plum-600">
@@ -311,25 +306,28 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
                 </Text>
               </View>
             )}
-          </ScrollView>
+      </ScrollView>
 
-          <View className="px-5 pt-2 pb-6 border-t border-plum-50 flex-row">
-            <View className="flex-1 mr-2">
-              <Button label="Cancel" variant="ghost" onPress={onClose} />
-            </View>
-            <View className="flex-1 ml-2">
-              <Button
-                label="Apply"
-                variant="primary"
-                onPress={handleApply}
-                loading={saving}
-                disabled={!prefs || saving}
-              />
-            </View>
-          </View>
+      <View className="px-5 pt-2 pb-6 border-t border-plum-50 flex-row">
+        <View className="flex-1 mr-2">
+          <Button
+            label="Cancel"
+            variant="ghost"
+            onPress={onClose}
+            disabled={saving}
+          />
+        </View>
+        <View className="flex-1 ml-2">
+          <Button
+            label="Apply"
+            variant="primary"
+            onPress={handleApply}
+            loading={saving}
+            disabled={!prefs || saving}
+          />
         </View>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 

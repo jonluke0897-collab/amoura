@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { useOAuth, useSignIn } from '@clerk/clerk-expo';
@@ -7,14 +7,12 @@ import { useOAuth, useSignIn } from '@clerk/clerk-expo';
 // Safe to call at module load; Clerk's Expo guide recommends this.
 WebBrowser.maybeCompleteAuthSession();
 
-// Shared deep-link target used by both Clerk OAuth providers and the email-link
-// flow. Computed at module load (Linking.createURL is side-effect-free).
-// Centralizing avoids drift if the scheme or path ever changes.
+// Shared deep-link target used by the OAuth providers (Apple / Google).
+// Email-code flow doesn't need a redirect URL — verification happens in-app
+// via the attempted code, with no browser bounce.
 const OAUTH_REDIRECT_URL = Linking.createURL('/', { scheme: 'amoura' });
 
 export type OAuthMethod = 'apple' | 'google';
-
-type EmailLinkFlowHandle = { cancelEmailLinkFlow: () => void };
 
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
@@ -22,7 +20,6 @@ export function useOAuthFlow() {
   const { signIn, setActive, isLoaded: signInLoaded } = useSignIn();
 
   const [busy, setBusy] = useState<OAuthMethod | 'email' | null>(null);
-  const linkFlowRef = useRef<EmailLinkFlowHandle | null>(null);
 
   const signInWith = useCallback(
     async (method: OAuthMethod): Promise<{ status: 'complete' | 'cancelled' }> => {
@@ -42,87 +39,74 @@ export function useOAuthFlow() {
     [appleFlow, googleFlow],
   );
 
-  const sendMagicLink = useCallback(
+  // Step 1: create a sign-in attempt and ask Clerk to email a one-time code.
+  // The return is void — the caller transitions to the code-entry UI on
+  // resolve. Errors propagate so the UI can surface them (e.g. unknown
+  // email, rate-limited).
+  const sendEmailCode = useCallback(
     async (email: string): Promise<void> => {
-      // Defensive normalization: SignInCard already trims before calling, but the
-      // hook is a public-ish surface. Strip whitespace and reject empty so we
-      // never round-trip an obviously-invalid identifier to Clerk.
       const identifier = email.trim();
       if (!identifier) throw new Error('Enter a valid email address');
-      if (!signInLoaded || !signIn || !setActive) {
+      if (!signInLoaded || !signIn) {
         throw new Error('Sign-in not ready yet, try again in a moment');
-      }
-
-      // If a prior send is still long-polling (user tapped Send again before
-      // tapping the first email's link), cancel it so only one flow races
-      // setActive. Best-effort — swallow errors.
-      if (linkFlowRef.current) {
-        try {
-          linkFlowRef.current.cancelEmailLinkFlow();
-          if (__DEV__) {
-            // eslint-disable-next-line no-console
-            console.debug('[useOAuthFlow] cancelled prior email link flow');
-          }
-        } catch {
-          // Ignore — we're about to start a new flow anyway.
-        }
       }
 
       setBusy('email');
       try {
-        // Create a bare sign-in attempt with just the identifier. Passing
-        // `strategy: 'email_link'` here would auto-prepare the factor, and
-        // startEmailLinkFlow() below ALSO prepares — the double-prepare
-        // triggers two emails and Clerk's server treats the second as a
-        // stale attempt, which ends up bouncing the link click to the
-        // hosted sign-in page instead of completing the flow. See the
-        // canonical Clerk pattern at
-        // https://clerk.com/docs/custom-flows/email-link.
         const { supportedFirstFactors } = await signIn.create({ identifier });
-
         const emailFactor = supportedFirstFactors?.find(
-          (f): f is { strategy: 'email_link'; emailAddressId: string; safeIdentifier: string } =>
-            f.strategy === 'email_link',
+          (f): f is {
+            strategy: 'email_code';
+            emailAddressId: string;
+            safeIdentifier: string;
+          } => f.strategy === 'email_code',
         );
-        if (!emailFactor) throw new Error('Email sign-in is not enabled for this account');
-
-        const linkFlow = signIn.createEmailLinkFlow();
-        linkFlowRef.current = linkFlow;
-        // Intentionally fire-and-forget. The caller's async work completes once
-        // Clerk has sent the magic-link email (from signIn.create above); the
-        // UI shows "Check your inbox" immediately. startEmailLinkFlow below only
-        // resolves when the user taps the link in their email, which could be
-        // minutes later or never. Awaiting it would block the sheet UI forever.
-        // When the link is tapped, setActive triggers ConvexProviderWithClerk
-        // to re-authenticate, which re-fires getMineStatus → (auth) layout
-        // redirects the user away.
-        linkFlow
-          .startEmailLinkFlow({ emailAddressId: emailFactor.emailAddressId, redirectUrl: OAUTH_REDIRECT_URL })
-          .then(async (result) => {
-            if (result.status === 'complete' && result.createdSessionId) {
-              await setActive({ session: result.createdSessionId });
-            }
-          })
-          .catch((err) => {
-            // Swallow for the user (caller UI handles "link expired / cancelled" via timeout UX),
-            // but surface in dev so engineers see cancellations/timeouts during iteration.
-            if (__DEV__) {
-              // eslint-disable-next-line no-console
-              console.debug('[useOAuthFlow] email link flow ended:', err);
-            }
-          })
-          .finally(() => {
-            // Only clear if a later call hasn't already replaced the ref.
-            if (linkFlowRef.current === linkFlow) {
-              linkFlowRef.current = null;
-            }
-          });
+        if (!emailFactor) {
+          throw new Error(
+            'Email code sign-in is not enabled for this account',
+          );
+        }
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+          emailAddressId: emailFactor.emailAddressId,
+        });
       } finally {
         setBusy(null);
       }
     },
-    [signIn, setActive, signInLoaded],
+    [signIn, signInLoaded],
   );
 
-  return { signInWith, sendMagicLink, busy };
+  // Step 2: submit the 6-digit code and, on success, activate the session.
+  // Throws on an invalid code so the UI can keep the user on the code-entry
+  // screen with an error message.
+  const verifyEmailCode = useCallback(
+    async (code: string): Promise<{ status: 'complete' | 'incomplete' }> => {
+      const trimmed = code.trim();
+      if (!trimmed) throw new Error('Enter the code from your email');
+      if (!signIn || !setActive) {
+        throw new Error('Sign-in not ready yet, try again in a moment');
+      }
+
+      setBusy('email');
+      try {
+        const attempt = await signIn.attemptFirstFactor({
+          strategy: 'email_code',
+          code: trimmed,
+        });
+        if (attempt.status === 'complete' && attempt.createdSessionId) {
+          await setActive({ session: attempt.createdSessionId });
+          return { status: 'complete' };
+        }
+        // Any non-complete status (needs_second_factor, abandoned) is
+        // surfaced as incomplete — the caller can decide how to escalate.
+        return { status: 'incomplete' };
+      } finally {
+        setBusy(null);
+      }
+    },
+    [signIn, setActive],
+  );
+
+  return { signInWith, sendEmailCode, verifyEmailCode, busy };
 }

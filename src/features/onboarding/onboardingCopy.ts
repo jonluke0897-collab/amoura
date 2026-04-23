@@ -9,11 +9,14 @@ export const SIGN_IN = {
   googleCta: 'Continue with Google',
   emailCta: 'Continue with email',
   emailSheetTitle: 'Sign in with email',
-  emailSheetHelp: "We'll send you a link — tap it and you're in.",
+  emailSheetHelp: "We'll send you a code — type it in and you're in.",
   emailInputPlaceholder: 'you@example.com',
-  emailSendCta: 'Send magic link',
-  emailSentTitle: 'Check your inbox',
-  emailSentBody: 'We just sent a sign-in link to {email}. It expires in 15 minutes.',
+  emailSendCta: 'Send code',
+  emailSentTitle: 'Enter the code',
+  emailSentBody: 'We sent a 6-digit code to {email}. It expires in 15 minutes.',
+  emailCodePlaceholder: '123456',
+  emailVerifyCta: 'Verify',
+  emailCodeInvalid: "That code didn't match. Double-check your email and try again.",
   termsFooter: 'By continuing, you agree to our Terms & Privacy.',
 };
 

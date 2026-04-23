@@ -104,6 +104,10 @@ export default function PhotosScreen() {
             await removePhoto({ photoId: id });
           } catch (e) {
             if (__DEV__) console.error('[photos] remove failed:', e);
+            Alert.alert(
+              PHOTOS_SCREEN.removeFailedTitle,
+              PHOTOS_SCREEN.removeFailedBody,
+            );
           }
         },
       },
@@ -115,6 +119,13 @@ export default function PhotosScreen() {
       await reorderPhotos({ photoIds: ids });
     } catch (e) {
       if (__DEV__) console.error('[photos] reorder failed:', e);
+      // The Convex listMine subscription will emit the true server ordering
+      // on the next tick, which reconciles the grid visually. The Alert
+      // exists so the user understands why their drag didn't stick.
+      Alert.alert(
+        PHOTOS_SCREEN.reorderFailedTitle,
+        PHOTOS_SCREEN.reorderFailedBody,
+      );
     }
   };
 

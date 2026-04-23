@@ -66,6 +66,10 @@ export const PHOTOS_SCREEN = {
     'To add photos, turn on photo access for Amoura in your device settings.',
   uploadFailedTitle: 'Upload failed',
   uploadFailedBody: "Couldn't upload that one — try picking it again.",
+  removeFailedTitle: 'Remove failed',
+  removeFailedBody: 'Please try again.',
+  reorderFailedTitle: 'Reorder failed',
+  reorderFailedBody: "We couldn't save the new order. Please try again.",
 };
 
 export const PROMPTS_SCREEN = {

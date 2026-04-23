@@ -9,12 +9,14 @@ import { api } from '~/convex/_generated/api';
 import { Text } from '~/src/components/ui/Text';
 import { Button } from '~/src/components/ui/Button';
 import { ProfileView } from '~/src/features/profile/ProfileView';
+import { CityPickerSheet } from '~/src/features/location/CityPickerSheet';
 
 export default function ProfileTab() {
   const me = useQuery(api.users.me);
   const photos = useQuery(api.photos.listMine) ?? [];
   const prompts = useQuery(api.profilePrompts.listMine) ?? [];
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const { signOut } = useAuth();
   const markOnboardingComplete = useMutation(api.profiles.markOnboardingComplete);
   const insets = useSafeAreaInsets();
@@ -53,6 +55,11 @@ export default function ProfileTab() {
     setSheetOpen(false);
     await signOut();
     router.replace('/(auth)/sign-in');
+  };
+
+  const handleChangeCity = () => {
+    setSheetOpen(false);
+    setCityPickerOpen(true);
   };
 
   return (
@@ -119,6 +126,7 @@ export default function ProfileTab() {
             <SheetRow label="Edit photos" onPress={() => goToEdit('photos')} />
             <SheetRow label="Edit prompts" onPress={() => goToEdit('prompts')} />
             <SheetRow label="Edit identity" onPress={() => goToEdit('identity')} />
+            <SheetRow label="Change city" onPress={handleChangeCity} />
             <View className="h-px bg-plum-50 my-3" />
             <Button
               label="Sign out"
@@ -128,6 +136,12 @@ export default function ProfileTab() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <CityPickerSheet
+        visible={cityPickerOpen}
+        onClose={() => setCityPickerOpen(false)}
+        onCitySet={() => setCityPickerOpen(false)}
+      />
     </View>
   );
 }

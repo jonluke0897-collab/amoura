@@ -1,26 +1,10 @@
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
-import type { MutationCtx, QueryCtx } from './_generated/server';
+import { requireUserAndProfile } from './lib/currentUser';
 
 const MAX_ANSWER_LENGTH = 250;
 const VALID_POSITIONS = new Set([0, 1, 2]);
-
-async function requireUserAndProfile(ctx: MutationCtx | QueryCtx) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error('Not authenticated');
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
-    .unique();
-  if (!user) throw new Error('User not found — account sync in progress');
-  const profile = await ctx.db
-    .query('profiles')
-    .withIndex('by_user', (q) => q.eq('userId', user._id))
-    .unique();
-  if (!profile) throw new Error('Complete identity step first');
-  return { user, profile };
-}
 
 export const listActive = query({
   handler: async (ctx) => {

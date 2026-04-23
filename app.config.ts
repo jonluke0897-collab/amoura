@@ -41,6 +41,13 @@ const config: ExpoConfig = {
           'Amoura uses the camera when you want to take a new photo for your profile.',
       },
     ],
+    [
+      'expo-location',
+      {
+        locationAlwaysAndWhenInUsePermission:
+          'Amoura uses your location only to detect your city. We store the city name — never your exact coordinates.',
+      },
+    ],
   ],
   extra: {
     eas: {

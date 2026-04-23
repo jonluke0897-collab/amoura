@@ -189,6 +189,11 @@ export default function PromptsScreen() {
                 existing ? editExisting(position) : openPicker(position)
               }
               accessibilityRole="button"
+              accessibilityLabel={
+                existing
+                  ? `Edit answer for: ${question}`
+                  : `Pick a prompt for slot ${position + 1}`
+              }
               className="bg-cream-100 rounded-md p-4 mb-3"
             >
               {existing ? (

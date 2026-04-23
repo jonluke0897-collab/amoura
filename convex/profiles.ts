@@ -650,14 +650,29 @@ export const updatePreferences = mutation({
   },
 });
 
+// Math.round (not floor) so the server matches the FilterSheet's rounding
+// on slider drags. Drift between the two would let a stored fractional
+// value rehydrate to one integer in the UI and filter against a different
+// integer on the server.
 function clampAge(value: number): number {
   if (!Number.isFinite(value)) return MIN_AGE;
-  return Math.min(MAX_AGE, Math.max(MIN_AGE, Math.floor(value)));
+  return Math.min(MAX_AGE, Math.max(MIN_AGE, Math.round(value)));
 }
 
+// Calendar-based age rather than (now - dob)/YEAR_MS. Dividing by a constant
+// year length is off by one around birthdays (leap years, early vs late in
+// the day) — a user could briefly show as 25 on their 26th birthday and get
+// filtered out by a feed gate set to 26+.
 function computeAge(dob: number | undefined, now: number = Date.now()): number | null {
   if (dob === undefined || !Number.isFinite(dob)) return null;
-  const years = Math.floor((now - dob) / YEAR_MS);
+  const birth = new Date(dob);
+  const current = new Date(now);
+  let years = current.getUTCFullYear() - birth.getUTCFullYear();
+  const birthdayPassedThisYear =
+    current.getUTCMonth() > birth.getUTCMonth() ||
+    (current.getUTCMonth() === birth.getUTCMonth() &&
+      current.getUTCDate() >= birth.getUTCDate());
+  if (!birthdayPassedThisYear) years -= 1;
   if (years < 0 || years > 150) return null;
   return years;
 }

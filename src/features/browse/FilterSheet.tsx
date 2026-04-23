@@ -67,6 +67,13 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
   const [distanceKm, setDistanceKm] = useState(50);
   const [intentions, setIntentions] = useState<IntentionValue[]>([]);
   const [t4tOnly, setT4tOnly] = useState(false);
+  // Tracks whether the user actively flipped the T4T switch in this session.
+  // Needed because the UI collapses a tri-state server preference
+  // (open | t4t-preferred | t4t-only) into a boolean. Without this flag, a
+  // user whose stored value is `t4t-preferred` would have the switch
+  // rehydrate to false and Apply would silently overwrite to `open`. When
+  // the switch is untouched, we preserve the stored value as-is.
+  const [t4tTouched, setT4tTouched] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [showVerifiedHint, setShowVerifiedHint] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -85,6 +92,7 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
       // intentions.includes() checks and render invalid chip state.
       setIntentions(sanitizeIntentions(prefs.intentions));
       setT4tOnly(prefs.t4tPreference === 't4t-only');
+      setT4tTouched(false);
       setVerifiedOnly(false);
       setShowVerifiedHint(false);
       setError(null);
@@ -126,21 +134,31 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
     setSaving(true);
     setError(null);
     try {
+      // Cis → always 'open' (server also coerces; we mirror for honesty).
+      // Touched toggle → write whatever the boolean now says.
+      // Untouched → preserve the stored value so `t4t-preferred` survives
+      // a no-op Apply. Without this, any `t4t-preferred` user who opens the
+      // sheet and hits Apply gets silently downgraded to `open`.
+      const nextT4tPreference: 'open' | 't4t-only' | 't4t-preferred' = isCis
+        ? 'open'
+        : t4tTouched
+          ? t4tOnly
+            ? 't4t-only'
+            : 'open'
+          : prefs.t4tPreference;
       await updatePreferences({
         ageMin,
         ageMax,
         maxDistanceKm: distanceKm,
         intentions,
-        // updatePreferences coerces cis → 'open' server-side, but also avoid
-        // writing a redundant value if the sheet toggle is off on a cis user.
-        t4tPreference: isCis ? 'open' : t4tOnly ? 't4t-only' : 'open',
+        t4tPreference: nextT4tPreference,
       });
       track(AnalyticsEvents.FILTERS_APPLIED, {
         ageMin,
         ageMax,
         distanceKm,
         intentionCount: intentions.length,
-        t4tOnly,
+        t4tPreference: nextT4tPreference,
         verifiedOnly,
       });
       onApplied();
@@ -279,7 +297,10 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
                   label="Show T4T matches only"
                   description="Only trans and non-binary profiles."
                   value={t4tOnly}
-                  onValueChange={setT4tOnly}
+                  onValueChange={(v) => {
+                    setT4tOnly(v);
+                    setT4tTouched(true);
+                  }}
                 />
               </Section>
             )}

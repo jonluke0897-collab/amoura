@@ -70,13 +70,15 @@ export function useOAuthFlow() {
 
       setBusy('email');
       try {
-        // Start the email-link sign-in. Clerk emails a magic link; when the user taps it,
-        // the flow promise below resolves and we set the active session.
-        const { supportedFirstFactors } = await signIn.create({
-          strategy: 'email_link',
-          identifier,
-          redirectUrl: OAUTH_REDIRECT_URL,
-        });
+        // Create a bare sign-in attempt with just the identifier. Passing
+        // `strategy: 'email_link'` here would auto-prepare the factor, and
+        // startEmailLinkFlow() below ALSO prepares — the double-prepare
+        // triggers two emails and Clerk's server treats the second as a
+        // stale attempt, which ends up bouncing the link click to the
+        // hosted sign-in page instead of completing the flow. See the
+        // canonical Clerk pattern at
+        // https://clerk.com/docs/custom-flows/email-link.
+        const { supportedFirstFactors } = await signIn.create({ identifier });
 
         const emailFactor = supportedFirstFactors?.find(
           (f): f is { strategy: 'email_link'; emailAddressId: string; safeIdentifier: string } =>

@@ -47,8 +47,65 @@ export const INTENTIONS_SCREEN = {
   maxSelectionHint: 'Pick up to three',
 };
 
+export const PHOTOS_SCREEN = {
+  heading: 'Show up as yourself.',
+  subhead:
+    'Two to six photos. Drag to reorder — the first is what people see first.',
+  minHint: 'Add at least 2 photos to continue.',
+  addCta: 'Add a photo',
+  pickerLibrary: 'Choose from library',
+  pickerCamera: 'Take a photo',
+  pickerCancel: 'Cancel',
+  removeTitle: 'Remove this photo?',
+  removeConfirm: 'Remove',
+  removeCancel: 'Keep',
+  continueCta: 'Continue',
+  saveCta: 'Save',
+  permissionDeniedTitle: 'Photo access is off',
+  permissionDeniedBody:
+    'To add photos, turn on photo access for Amoura in your device settings.',
+  uploadFailedTitle: 'Upload failed',
+  uploadFailedBody: "Couldn't upload that one — try picking it again.",
+  removeFailedTitle: 'Remove failed',
+  removeFailedBody: 'Please try again.',
+  reorderFailedTitle: 'Reorder failed',
+  reorderFailedBody: "We couldn't save the new order. Please try again.",
+};
+
+export const PROMPTS_SCREEN = {
+  heading: 'Prompts, if you like.',
+  subhead:
+    "Pick up to three. Skip for now if you'd rather — profiles with 3 prompts tend to stand out.",
+  pickCta: 'Pick a prompt',
+  continueCta: 'Continue',
+  skipCta: 'Skip for now',
+  saveCta: 'Save',
+  characterLimit: 250,
+  editorPlaceholder: 'Write your answer…',
+  emptySlotLabel: 'Pick a prompt',
+  discardTitle: 'Discard changes?',
+  discardBody: "You haven't saved yet.",
+  discardConfirm: 'Discard',
+  discardKeep: 'Keep editing',
+  pickerTitle: 'Pick a prompt',
+  pickerClose: 'Close',
+  changePromptLabel: 'Change prompt',
+  removeAnswerLabel: 'Remove this answer',
+  removeAnswerTitle: 'Remove this answer?',
+  removeAnswerConfirm: 'Remove',
+  removeAnswerKeep: 'Keep',
+  saveFailedTitle: 'Save failed',
+  saveFailedBody: 'Please try again.',
+  removeFailedTitle: 'Remove failed',
+  removeFailedBody: 'Please try again.',
+  nudgeRemainingSingular: '1 more prompt to round out your profile',
+  nudgeRemainingPlural: '{n} more prompts to round out your profile',
+  nudgeBody: 'Profiles with 3 prompts stand out more.',
+  nudgeCta: 'Add prompts',
+};
+
 export const COMPLETE_SCREEN = {
   heading: "You're in.",
-  subhead: "Let's build your profile — take your time.",
-  cta: 'Add photos',
+  subhead: "Here's how you'll show up.",
+  cta: 'See my profile',
 };

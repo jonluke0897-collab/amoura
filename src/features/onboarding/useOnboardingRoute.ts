@@ -5,7 +5,16 @@ import { api } from '~/convex/_generated/api';
 export type OnboardingRoute =
   | { state: 'loading' }
   | { state: 'signed-out' }
-  | { state: 'needs-step'; step: 'identity' | 'intentions' | 'pledge' | 'complete' };
+  | {
+      state: 'needs-step';
+      step:
+        | 'identity'
+        | 'intentions'
+        | 'pledge'
+        | 'photos'
+        | 'prompts'
+        | 'complete';
+    };
 
 /**
  * Decides where a user should land based on Clerk auth + Convex onboarding status.

@@ -1,7 +1,9 @@
 import '../global.css';
+import 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Fraunces_400Regular, Fraunces_500Medium, Fraunces_600SemiBold, Fraunces_700Bold } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
@@ -43,16 +45,18 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <ClerkProvider>
-      <ConvexProvider>
-        <AnalyticsProvider>
-          <SafeAreaProvider>
-            <AppOpenedEvent />
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
-          </SafeAreaProvider>
-        </AnalyticsProvider>
-      </ConvexProvider>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ClerkProvider>
+        <ConvexProvider>
+          <AnalyticsProvider>
+            <SafeAreaProvider>
+              <AppOpenedEvent />
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }} />
+            </SafeAreaProvider>
+          </AnalyticsProvider>
+        </ConvexProvider>
+      </ClerkProvider>
+    </GestureHandlerRootView>
   );
 }

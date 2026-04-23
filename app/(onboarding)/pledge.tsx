@@ -45,8 +45,9 @@ export default function PledgeScreen() {
     try {
       await acceptPledge({ pledgeType, pledgeVersion: PLEDGE_VERSION });
       track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step: 'pledge' });
-      track(AnalyticsEvents.ONBOARDING_COMPLETED, { pledgeType });
-      router.replace('/(onboarding)/complete');
+      // ONBOARDING_COMPLETED now fires from the complete screen, after
+      // photos and prompts land. Pledge is no longer the completion boundary.
+      router.replace('/(onboarding)/photos');
     } catch (e) {
       // Full error details go to the dev console for diagnostics. The user-visible
       // message intentionally keeps e.message because our server-thrown errors

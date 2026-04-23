@@ -29,6 +29,8 @@ export type IdentityFormValues = {
 type Props = {
   submitting?: boolean;
   errorMessage?: string | null;
+  initialValues?: Partial<IdentityFormValues>;
+  submitLabel?: string;
   onSubmit: (values: IdentityFormValues & { genderModality: ModalityValue; t4tPreference: T4TValue }) => void;
 };
 
@@ -62,12 +64,22 @@ function RadioRow({ label, selected, onPress }: RadioRowProps) {
   );
 }
 
-export function IdentityForm({ submitting = false, errorMessage = null, onSubmit }: Props) {
-  const [pronouns, setPronouns] = useState<string[]>([]);
-  const [genderIdentity, setGenderIdentity] = useState('');
-  const [genderModality, setGenderModality] = useState<ModalityValue | null>(null);
-  const [orientation, setOrientation] = useState<string[]>([]);
-  const [t4tPreference, setT4tPreference] = useState<T4TValue | null>(null);
+export function IdentityForm({
+  submitting = false,
+  errorMessage = null,
+  initialValues,
+  submitLabel,
+  onSubmit,
+}: Props) {
+  const [pronouns, setPronouns] = useState<string[]>(initialValues?.pronouns ?? []);
+  const [genderIdentity, setGenderIdentity] = useState(initialValues?.genderIdentity ?? '');
+  const [genderModality, setGenderModality] = useState<ModalityValue | null>(
+    initialValues?.genderModality ?? null,
+  );
+  const [orientation, setOrientation] = useState<string[]>(initialValues?.orientation ?? []);
+  const [t4tPreference, setT4tPreference] = useState<T4TValue | null>(
+    initialValues?.t4tPreference ?? null,
+  );
 
   const showT4T = genderModality !== null && genderModality !== 'cis';
 
@@ -229,7 +241,7 @@ export function IdentityForm({ submitting = false, errorMessage = null, onSubmit
       ) : null}
 
       <Button
-        label={IDENTITY_SCREEN.continueCta}
+        label={submitLabel ?? IDENTITY_SCREEN.continueCta}
         onPress={handleSubmit}
         disabled={!canSubmit || submitting}
         loading={submitting}

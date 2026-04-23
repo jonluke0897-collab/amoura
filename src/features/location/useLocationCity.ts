@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import * as Location from 'expo-location';
 import { useMutation } from 'convex/react';
 import { api } from '~/convex/_generated/api';
+import { canonicalizeCity } from './canonicalizeCity';
 
 export type LocationCityStatus =
   | 'idle'
@@ -53,8 +54,15 @@ export function useLocationCity() {
         longitude: position.coords.longitude,
       });
 
-      const city = extractCity(results);
-      if (!city) {
+      const rawCity = extractCity(results);
+      if (!rawCity) {
+        setStatus('unavailable');
+        return null;
+      }
+      // Canonicalize so "brooklyn" from the geocoder and "Brooklyn" from the
+      // launch-city list land in the same feed bucket.
+      const city = canonicalizeCity(rawCity);
+      if (city.length === 0) {
         setStatus('unavailable');
         return null;
       }
@@ -75,7 +83,15 @@ export function useLocationCity() {
       setError(null);
       setStatus('saving');
       try {
-        await updatePreferences({ city });
+        // Same canonicalization path as GPS-detected cities so manual and
+        // detected inputs always write identical strings.
+        const normalized = canonicalizeCity(city);
+        if (normalized.length === 0) {
+          setStatus('error');
+          setError('City name cannot be empty');
+          return false;
+        }
+        await updatePreferences({ city: normalized });
         setStatus('idle');
         return true;
       } catch (e) {

@@ -56,17 +56,26 @@ export function CityPickerSheet({
   const denied = status === 'denied';
   const unavailable = status === 'unavailable';
 
+  // Block dismissal while an async save is in flight. updatePreferences has
+  // already been (or is about to be) sent; letting the user dismiss while
+  // that's happening would silently commit a city change after a cancel.
+  // Keeping the modal up until the work finishes respects the user action.
+  const handleClose = () => {
+    if (busy) return;
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View className="flex-1 bg-plum-900/40 justify-end">
         <Pressable
           className="absolute inset-0"
-          onPress={onClose}
+          onPress={handleClose}
           accessibilityRole="button"
           accessibilityLabel="Close"
         />
@@ -79,12 +88,14 @@ export function CityPickerSheet({
               Your city
             </Text>
             <Pressable
-              onPress={onClose}
+              onPress={handleClose}
+              disabled={busy}
               accessibilityRole="button"
               accessibilityLabel="Close city picker"
+              accessibilityState={{ disabled: busy }}
               hitSlop={12}
             >
-              <X color="#6D28D9" size={22} />
+              <X color={busy ? '#A78BFA' : '#6D28D9'} size={22} />
             </Pressable>
           </View>
           <Text variant="body" className="px-5 pb-4 text-plum-600 text-base">

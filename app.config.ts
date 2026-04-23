@@ -44,7 +44,11 @@ const config: ExpoConfig = {
     [
       'expo-location',
       {
-        locationAlwaysAndWhenInUsePermission:
+        // Foreground-only — matches requestForegroundPermissionsAsync in
+        // useLocationCity. Using locationWhenInUsePermission maps to
+        // NSLocationWhenInUseUsageDescription on iOS, which is what the
+        // system surfaces for a one-shot city resolution.
+        locationWhenInUsePermission:
           'Amoura uses your location only to detect your city. We store the city name — never your exact coordinates.',
       },
     ],

@@ -25,6 +25,17 @@ type IntentionValue =
   | 'community'
   | 'figuring-it-out';
 
+const VALID_INTENTION_IDS = new Set<IntentionValue>(
+  INTENTION_OPTIONS.map((o) => o.id),
+);
+
+function sanitizeIntentions(input: unknown): IntentionValue[] {
+  if (!Array.isArray(input)) return [];
+  return input.filter((i): i is IntentionValue =>
+    typeof i === 'string' && VALID_INTENTION_IDS.has(i as IntentionValue),
+  );
+}
+
 const AGE_MIN = 18;
 const AGE_MAX = 70;
 const DISTANCE_MIN = 5;
@@ -65,7 +76,10 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
       setAgeMin(clamp(prefs.ageMin ?? AGE_MIN, AGE_MIN, AGE_MAX));
       setAgeMax(clamp(prefs.ageMax ?? AGE_MAX, AGE_MIN, AGE_MAX));
       setDistanceKm(clamp(prefs.maxDistanceKm ?? 50, DISTANCE_MIN, DISTANCE_MAX));
-      setIntentions(prefs.intentions as IntentionValue[]);
+      // Defence in depth: don't trust the server shape. Unknown/stale values
+      // from a pre-enum-expansion profile would otherwise flow into
+      // intentions.includes() checks and render invalid chip state.
+      setIntentions(sanitizeIntentions(prefs.intentions));
       setT4tOnly(prefs.t4tPreference === 't4t-only');
       setVerifiedOnly(false);
       setShowVerifiedHint(false);
@@ -94,6 +108,13 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
   };
 
   const handleApply = async () => {
+    if (!prefs) {
+      // If the sheet is opened before getMinePreferences resolves, our local
+      // state is still the AGE_MIN/AGE_MAX defaults rather than the user's
+      // saved prefs. Applying now would silently overwrite with defaults.
+      setError('Preferences are still loading. Please try again.');
+      return;
+    }
     if (ageMin > ageMax) {
       setError('Minimum age must not exceed maximum age.');
       return;
@@ -302,6 +323,7 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
                 variant="primary"
                 onPress={handleApply}
                 loading={saving}
+                disabled={!prefs || saving}
               />
             </View>
           </View>

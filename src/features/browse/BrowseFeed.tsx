@@ -76,6 +76,18 @@ export function BrowseFeed({
     }
   }, [refreshing, feed.status]);
 
+  // listFeed post-filters each page in memory, so a page can deliver zero
+  // items while Convex still has more underlying profiles (CanLoadMore). An
+  // empty FlatList can't trigger onEndReached (nothing to scroll), so without
+  // this auto-load the user would get stuck on an empty screen until pull-
+  // to-refresh. Runs until we either have items or the cursor is exhausted.
+  useEffect(() => {
+    if (feed.status === 'CanLoadMore' && feed.results.length === 0) {
+      feed.loadMore(FEED_PAGE_SIZE);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feed.status, feed.results.length]);
+
   const handlePullToRefresh = useCallback(() => {
     setRefreshing(true);
     onRequestRefresh();
@@ -93,10 +105,10 @@ export function BrowseFeed({
         item={item}
         height={listHeight}
         onPress={() => {
-          track(AnalyticsEvents.PROFILE_CARD_TAPPED, {
-            targetUserId: item.userId,
-            position: index,
-          });
+          // Position only — no target identifier. Analytics is a third-party
+          // processor (PostHog EU); keep user IDs inside Convex. Position is
+          // enough to analyse engagement funnels (which card slot gets tapped).
+          track(AnalyticsEvents.PROFILE_CARD_TAPPED, { position: index });
           router.push(`/profile/${item.userId}`);
         }}
       />
@@ -122,7 +134,11 @@ export function BrowseFeed({
         <NoCityYet onSetCity={onRequestSetCity} />
       ) : feed.status === 'LoadingFirstPage' && !refreshing ? (
         <LoadingFeed />
-      ) : feed.results.length === 0 ? (
+      ) : // NoMatches only when the server has genuinely said "no one left"
+      // (Exhausted + zero results). During pull-to-refresh, Convex clears
+      // results while the new subscription loads — showing NoMatches there
+      // would flash a misleading empty state for a beat.
+      feed.status === 'Exhausted' && feed.results.length === 0 ? (
         <NoMatches onAdjustFilters={onRequestOpenFilters} />
       ) : (
         <FlatList

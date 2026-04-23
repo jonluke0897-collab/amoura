@@ -22,7 +22,10 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
   const profile = useQuery(api.profiles.getPublic, { userId });
 
   useEffect(() => {
-    track(AnalyticsEvents.PROFILE_DETAIL_VIEWED, { targetUserId: userId });
+    // No target identifier — analytics is a third-party processor. The event
+    // itself (someone opened a detail view) is what we track; correlation to
+    // specific users happens inside Convex if ever needed.
+    track(AnalyticsEvents.PROFILE_DETAIL_VIEWED);
     // Intentionally narrow deps: we want one event per navigation, not one
     // per render. `track` is stable across renders via usePostHog.
     // eslint-disable-next-line react-hooks/exhaustive-deps

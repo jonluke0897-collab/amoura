@@ -7,11 +7,8 @@ import { Button } from '~/src/components/ui/Button';
 import { Input } from '~/src/components/ui/Input';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { SIGN_IN } from '~/src/features/onboarding/onboardingCopy';
+import { EMAIL_PATTERN } from '~/src/lib/validation';
 import { useOAuthFlow } from './useOAuthFlow';
-
-// Basic structural check — Clerk does the real validation. Mirrors the
-// pattern in SignInCard so the error copy on malformed input is identical.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type PasswordLoginSheetProps = {
   visible: boolean;

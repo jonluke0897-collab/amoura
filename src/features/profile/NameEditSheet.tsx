@@ -48,7 +48,11 @@ export function NameEditSheet({
   }, [visible, currentName]);
 
   const trimmed = name.trim();
-  const canSave = !saving && trimmed.length > 0 && trimmed !== currentName;
+  // Compare trimmed against trimmed so a currentName arriving with
+  // incidental whitespace (e.g. a pre-normalization Clerk sync) doesn't
+  // register as "user edited it" and enable Save on a no-op.
+  const canSave =
+    !saving && trimmed.length > 0 && trimmed !== currentName.trim();
 
   const handleSave = async () => {
     if (!canSave) return;

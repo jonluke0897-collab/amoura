@@ -4,6 +4,7 @@ import { mutation, query } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import { GENDER_MODALITY, INTENTION, PLEDGE_TYPE, T4T_PREFERENCE } from './validators';
 import { requireUserAndProfile } from './lib/currentUser';
+import { canonicalizeCity } from './lib/canonicalizeCity';
 
 type OnboardingStep =
   | 'identity'
@@ -601,9 +602,15 @@ export const updatePreferences = mutation({
     const patch: Partial<Doc<'profiles'>> = {};
 
     if (args.city !== undefined) {
-      const trimmed = args.city.trim();
-      if (trimmed.length === 0) throw new Error('City cannot be empty');
-      patch.city = trimmed;
+      // Canonicalize, not just trim. listFeed gates on exact-match city via
+      // `by_visible_city`, so "Brooklyn", "brooklyn", and " Brooklyn " would
+      // otherwise sit in separate buckets. The client hook
+      // (useLocationCity) already normalizes before calling, but we repeat
+      // it here so any other write path — Clerk admin, a future migration,
+      // a direct Convex dashboard edit — can't bypass the invariant.
+      const normalized = canonicalizeCity(args.city);
+      if (normalized.length === 0) throw new Error('City cannot be empty');
+      patch.city = normalized;
     }
 
     if (args.ageMin !== undefined || args.ageMax !== undefined) {

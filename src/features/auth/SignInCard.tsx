@@ -7,12 +7,10 @@ import { Button } from '~/src/components/ui/Button';
 import { Input } from '~/src/components/ui/Input';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { SIGN_IN } from '~/src/features/onboarding/onboardingCopy';
+import { EMAIL_PATTERN } from '~/src/lib/validation';
 import { useOAuthFlow } from './useOAuthFlow';
 import { PasswordLoginSheet } from './PasswordLoginSheet';
 
-// Local-part@domain.tld — basic structural check so we don't round-trip
-// obviously invalid input to Clerk. The server does the real validation.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CODE_LENGTH = 6;
 
 type Step = 'email' | 'code';

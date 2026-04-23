@@ -52,6 +52,16 @@ export const finalizeUpload = mutation({
     height: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Dimensions come from client-side manipulator output; bad values (<=0 or
+    // non-integer) would poison layout calculations in the carousel. Reject
+    // at the boundary rather than trusting client input.
+    if (args.width !== undefined && (args.width <= 0 || !Number.isFinite(args.width))) {
+      throw new Error('width must be a positive number');
+    }
+    if (args.height !== undefined && (args.height <= 0 || !Number.isFinite(args.height))) {
+      throw new Error('height must be a positive number');
+    }
+
     const { user, profile } = await requireUserAndProfile(ctx);
     const existing = await ctx.db
       .query('photos')
@@ -183,14 +193,8 @@ export const listMine = query({
   },
 });
 
-export const listForProfile = query({
-  args: { profileId: v.id('profiles') },
-  handler: async (ctx, args): Promise<PhotoView[]> => {
-    const rows = await ctx.db
-      .query('photos')
-      .withIndex('by_profile_position', (q) => q.eq('profileId', args.profileId))
-      .collect();
-    rows.sort((a, b) => a.position - b.position);
-    return Promise.all(rows.map((p) => toView(ctx, p)));
-  },
-});
+// listForProfile was drafted for external use but has no callers —
+// profiles.getPublic inlines its own photo fetch and applies isVisible +
+// accountStatus gating there. Shipping an ungated public query would leak
+// photos for hidden or suspended profiles, so the query is intentionally
+// omitted. Phase 4 (browse feed) can reintroduce a gated variant if needed.

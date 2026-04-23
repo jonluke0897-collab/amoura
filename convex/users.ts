@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalMutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 
 // Current user (joined through Clerk identity → users table).
 export const me = query({
@@ -44,10 +44,14 @@ export const syncFromClerk = internalMutation({
     const now = Date.now();
 
     if (existing) {
+      // Preserve displayName on Clerk updates — users can edit their name
+      // in-app via the Profile tab, and that should win over whatever
+      // Clerk's first_name happens to be on a later webhook. Email and
+      // phoneNumber continue to track Clerk; we don't expose in-app
+      // editing for those and they're identifier-shaped.
       await ctx.db.patch(existing._id, {
         email: args.email,
         phoneNumber: args.phoneNumber,
-        displayName: args.displayName,
         lastActiveAt: now,
       });
       return existing._id;
@@ -62,6 +66,32 @@ export const syncFromClerk = internalMutation({
       accountStatus: 'active',
       lastActiveAt: now,
       createdAt: now,
+    });
+  },
+});
+
+// User-facing mutation for editing the display name from the Profile tab.
+// Once a user sets a name here, it's preserved across Clerk webhook
+// updates (see syncFromClerk above) — Convex becomes the source of truth.
+export const updateDisplayName = mutation({
+  args: { displayName: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error('Not authenticated');
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', identity.subject))
+      .unique();
+    if (!user) throw new Error('User not found');
+
+    const trimmed = args.displayName.trim();
+    if (trimmed.length === 0) throw new Error('Name cannot be empty');
+    if (trimmed.length > 50) throw new Error('Name must be 50 characters or fewer');
+
+    await ctx.db.patch(user._id, {
+      displayName: trimmed,
+      lastActiveAt: Date.now(),
     });
   },
 });

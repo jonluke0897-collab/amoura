@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Modal, Pressable, SectionList, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import type { Id } from '~/convex/_generated/dataModel';
 import { Text } from '~/src/components/ui/Text';
@@ -42,7 +43,7 @@ export function PromptPicker({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-cream-50 pt-14 px-5">
+      <SafeAreaView edges={['bottom']} className="flex-1 bg-cream-50 pt-14 px-5">
         <View className="flex-row items-center justify-between mb-4">
           <Text variant="heading" className="text-2xl text-plum-600">
             {PROMPTS_SCREEN.pickerTitle}
@@ -87,7 +88,7 @@ export function PromptPicker({
           }}
           contentContainerStyle={{ paddingBottom: 40 }}
         />
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

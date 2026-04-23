@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useMutation, useQuery } from 'convex/react';
 import { useAuth } from '@clerk/clerk-expo';
@@ -16,6 +17,7 @@ export default function ProfileTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const { signOut } = useAuth();
   const markOnboardingComplete = useMutation(api.profiles.markOnboardingComplete);
+  const insets = useSafeAreaInsets();
 
   // Migration fallback: users who reached the tabs under old code with photos
   // but no prompts have onboardingComplete=false. Fire the idempotent marker
@@ -93,9 +95,12 @@ export default function ProfileTab() {
       >
         <Pressable className="flex-1 bg-black/40" onPress={() => setSheetOpen(false)}>
           <Pressable
-            className="absolute bottom-0 left-0 right-0 bg-cream-50 rounded-t-lg pb-8 pt-4 px-5"
+            className="absolute bottom-0 left-0 right-0 bg-cream-50 rounded-t-lg pt-4 px-5"
+            style={{ paddingBottom: Math.max(insets.bottom, 24) }}
             // Catch presses so the backdrop press-through doesn't close when
-            // users tap inside the sheet itself.
+            // users tap inside the sheet itself. Bottom padding uses the
+            // larger of the safe-area inset (Android gesture bar / iOS home
+            // indicator) or 24px so the sheet never hugs the nav bar.
             onPress={() => {}}
           >
             <View className="flex-row items-center justify-between mb-4">

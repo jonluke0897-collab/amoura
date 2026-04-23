@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { Text } from '~/src/components/ui/Text';
 import { Button } from '~/src/components/ui/Button';
@@ -83,7 +84,12 @@ export function PromptAnswerEditor({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1 bg-cream-50"
       >
-        <View className="flex-1 pt-14 px-5">
+        {/*
+          SafeAreaView bottom edge protects the Save + Remove CTAs from Android's
+          gesture bar. Top uses explicit pt-14 because we want breathing room
+          below the status bar, not the bare safe inset.
+        */}
+        <SafeAreaView edges={['bottom']} className="flex-1 pt-14 px-5">
           <View className="flex-row items-center justify-between mb-3">
             <Text variant="caption" className="uppercase text-xs tracking-wider">
               {category}
@@ -158,7 +164,7 @@ export function PromptAnswerEditor({
               accessibilityRole="button"
               hitSlop={8}
               disabled={submitting}
-              className="self-center mb-6 py-2"
+              className="self-center mb-3 py-2"
             >
               <Text
                 variant="body"
@@ -168,7 +174,7 @@ export function PromptAnswerEditor({
               </Text>
             </Pressable>
           )}
-        </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </Modal>
   );

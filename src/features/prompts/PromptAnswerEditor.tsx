@@ -30,6 +30,13 @@ export type PromptAnswerEditorProps = {
    * onboarding new-answer flow so users don't accidentally wander off-prompt.
    */
   onChangePrompt?: () => void;
+  /**
+   * Optional: when supplied, renders a destructive "Remove this answer" link
+   * at the bottom of the editor. Parent confirms + calls the remove mutation
+   * and dismisses the modal. Only makes sense when an existing answer is
+   * being edited (server row exists); omitted on fresh picks.
+   */
+  onRemove?: () => void;
 };
 
 export function PromptAnswerEditor({
@@ -41,6 +48,7 @@ export function PromptAnswerEditor({
   onCancel,
   onSave,
   onChangePrompt,
+  onRemove,
 }: PromptAnswerEditorProps) {
   const [text, setText] = useState(initialText);
   const inputRef = useRef<TextInput>(null);
@@ -141,8 +149,25 @@ export function PromptAnswerEditor({
             disabled={!canSave}
             loading={submitting}
             onPress={() => onSave(trimmed)}
-            className="mb-6"
+            className="mb-3"
           />
+
+          {onRemove && (
+            <Pressable
+              onPress={onRemove}
+              accessibilityRole="button"
+              hitSlop={8}
+              disabled={submitting}
+              className="self-center mb-6 py-2"
+            >
+              <Text
+                variant="body"
+                className="text-sm text-rose-700 underline"
+              >
+                {PROMPTS_SCREEN.removeAnswerLabel}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>

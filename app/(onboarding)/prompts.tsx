@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '~/convex/_generated/api';
@@ -13,7 +13,13 @@ import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 
 type SlotState =
   | { open: false }
-  | { open: true; position: number; prompt: PromptSummary; initialText: string };
+  | {
+      open: true;
+      position: number;
+      prompt: PromptSummary;
+      initialText: string;
+      existingId: Id<'profilePrompts'> | null;
+    };
 
 export default function PromptsScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
@@ -22,6 +28,7 @@ export default function PromptsScreen() {
   const activePrompts = useQuery(api.profilePrompts.listActive) ?? [];
   const myAnswers = useQuery(api.profilePrompts.listMine) ?? [];
   const answerPrompt = useMutation(api.profilePrompts.answerPrompt);
+  const removePrompt = useMutation(api.profilePrompts.removePrompt);
   const track = useTrack();
 
   const [pickerOpen, setPickerOpen] = useState<{ open: boolean; position: number }>({
@@ -51,7 +58,17 @@ export default function PromptsScreen() {
   const handlePromptPick = (prompt: PromptSummary) => {
     const pos = pickerOpen.position;
     setPickerOpen({ open: false, position: 0 });
-    setEditorState({ open: true, position: pos, prompt, initialText: '' });
+    // Preserve existingId if the user is swapping a prompt at a slot that
+    // already has a saved answer — the server row survives the swap (it's a
+    // patch, not a delete+insert), so Remove should still be available.
+    const existing = answered[pos];
+    setEditorState({
+      open: true,
+      position: pos,
+      prompt,
+      initialText: '',
+      existingId: existing?._id ?? null,
+    });
   };
 
   const editExisting = (position: number) => {
@@ -64,6 +81,7 @@ export default function PromptsScreen() {
       position,
       prompt,
       initialText: existing.answerText,
+      existingId: existing._id,
     });
   };
 
@@ -89,6 +107,33 @@ export default function PromptsScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleRemoveFromEditor = () => {
+    if (!editorState.open || !editorState.existingId) return;
+    const profilePromptId = editorState.existingId;
+    Alert.alert(
+      PROMPTS_SCREEN.removeAnswerTitle,
+      undefined,
+      [
+        { text: PROMPTS_SCREEN.removeAnswerKeep, style: 'cancel' },
+        {
+          text: PROMPTS_SCREEN.removeAnswerConfirm,
+          style: 'destructive',
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              await removePrompt({ profilePromptId });
+              setEditorState({ open: false });
+            } catch (e) {
+              if (__DEV__) console.error('[prompts] remove failed:', e);
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const answerCount = myAnswers.length;
@@ -184,6 +229,7 @@ export default function PromptsScreen() {
           onCancel={() => setEditorState({ open: false })}
           onSave={handleSave}
           onChangePrompt={changePromptFromEditor}
+          onRemove={editorState.existingId ? handleRemoveFromEditor : undefined}
         />
       )}
     </View>

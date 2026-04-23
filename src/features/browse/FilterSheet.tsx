@@ -107,6 +107,11 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
   }, [visible]);
 
   const isCis = prefs?.genderModality === 'cis';
+  // Only show the T4T control once prefs have resolved. Without this guard,
+  // cis users see the switch for a beat before `prefs` arrives (isCis
+  // collapses to false while undefined), which looks broken when the
+  // section then disappears after hydration.
+  const showT4T = prefs !== undefined && !isCis;
 
   const toggleIntention = (value: IntentionValue) => {
     setIntentions((current) =>
@@ -291,7 +296,7 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
               </Text>
             </Section>
 
-            {!isCis && (
+            {showT4T && (
               <Section title="T4T">
                 <ToggleRow
                   label="Show T4T matches only"

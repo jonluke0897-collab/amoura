@@ -4,11 +4,11 @@
 export const SIGN_IN = {
   brand: 'Amoura',
   heading: "You're welcome here.",
-  subhead: 'Sign in to start — we\u2019ll take you through a short setup next.',
+  subhead: 'Sign in or create an account — we\u2019ll take you through a short setup next.',
   appleCta: 'Continue with Apple',
   googleCta: 'Continue with Google',
   emailCta: 'Continue with email',
-  emailSheetTitle: 'Sign in with email',
+  emailSheetTitle: 'Continue with email',
   emailSheetHelp: "We'll send you a code — type it in and you're in.",
   emailInputPlaceholder: 'you@example.com',
   emailSendCta: 'Send code',

@@ -52,43 +52,60 @@ export const finalizeUpload = mutation({
     height: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Dimensions come from client-side manipulator output; bad values (<=0 or
-    // non-integer) would poison layout calculations in the carousel. Reject
-    // at the boundary rather than trusting client input.
-    if (args.width !== undefined && (args.width <= 0 || !Number.isFinite(args.width))) {
-      throw new Error('width must be a positive number');
-    }
-    if (args.height !== undefined && (args.height <= 0 || !Number.isFinite(args.height))) {
-      throw new Error('height must be a positive number');
-    }
+    // By the time finalizeUpload is called, the client has already POSTed the
+    // bytes, so ctx.storage holds a blob for args.storageId. Any throw from
+    // here onwards leaks that blob unless we compensate. Wrap the body in a
+    // try/catch that deletes the blob on any failure before rethrowing, so
+    // the only surviving orphan case is "client never called finalizeUpload"
+    // (app killed mid-upload) — that's the documented Phase 7 cleanup-cron
+    // territory. Doing this server-side keeps the orphan-delete capability
+    // out of client hands; exposing a callable cleanup mutation would be a
+    // DoS surface because storageIds leak in photo URLs.
+    try {
+      // Dimensions come from client-side manipulator output; bad values (<=0
+      // or non-integer) would poison layout calculations in the carousel.
+      if (args.width !== undefined && (args.width <= 0 || !Number.isFinite(args.width))) {
+        throw new Error('width must be a positive number');
+      }
+      if (args.height !== undefined && (args.height <= 0 || !Number.isFinite(args.height))) {
+        throw new Error('height must be a positive number');
+      }
 
-    const { user, profile } = await requireUserAndProfile(ctx);
-    const existing = await ctx.db
-      .query('photos')
-      .withIndex('by_profile_position', (q) => q.eq('profileId', profile._id))
-      .collect();
-    if (existing.length >= MAX_PHOTOS) {
-      // Race: the upload went through but the account was filled in the
-      // meantime. Delete the orphaned blob so storage stays clean.
-      await ctx.storage.delete(args.storageId);
-      throw new Error(`Maximum ${MAX_PHOTOS} photos per profile`);
+      const { user, profile } = await requireUserAndProfile(ctx);
+      const existing = await ctx.db
+        .query('photos')
+        .withIndex('by_profile_position', (q) => q.eq('profileId', profile._id))
+        .collect();
+      if (existing.length >= MAX_PHOTOS) {
+        throw new Error(`Maximum ${MAX_PHOTOS} photos per profile`);
+      }
+      const nextPosition = existing.length === 0
+        ? 0
+        : Math.max(...existing.map((p) => p.position)) + 1;
+      const now = Date.now();
+      const photoId = await ctx.db.insert('photos', {
+        profileId: profile._id,
+        userId: user._id,
+        storageId: args.storageId,
+        position: nextPosition,
+        isVerified: false,
+        width: args.width,
+        height: args.height,
+        createdAt: now,
+      });
+      await ctx.db.patch(user._id, { lastActiveAt: now });
+      return photoId;
+    } catch (err) {
+      // Best-effort blob cleanup. Swallow cleanup errors so the original
+      // error surfaces to the client; the Phase 7 cron will catch any
+      // stragglers.
+      try {
+        await ctx.storage.delete(args.storageId);
+      } catch {
+        // intentionally silent
+      }
+      throw err;
     }
-    const nextPosition = existing.length === 0
-      ? 0
-      : Math.max(...existing.map((p) => p.position)) + 1;
-    const now = Date.now();
-    const photoId = await ctx.db.insert('photos', {
-      profileId: profile._id,
-      userId: user._id,
-      storageId: args.storageId,
-      position: nextPosition,
-      isVerified: false,
-      width: args.width,
-      height: args.height,
-      createdAt: now,
-    });
-    await ctx.db.patch(user._id, { lastActiveAt: now });
-    return photoId;
   },
 });
 

@@ -57,6 +57,13 @@ export function BottomSheet({
   heightPercent = 80,
 }: BottomSheetProps) {
   const { height: windowHeight } = useWindowDimensions();
+  // Defensive clamp — `heightPercent` is caller-supplied, so guard against
+  // NaN / 0 / negative / >100 that would produce an invisible or overflowing
+  // sheet. 20% floor keeps the sheet usable even if someone accidentally
+  // passes a small value; 95% ceiling leaves room for the status bar.
+  const clampedHeightPercent = Number.isFinite(heightPercent)
+    ? Math.min(95, Math.max(20, heightPercent))
+    : 80;
   const translateY = useSharedValue(0);
 
   const tryClose = useCallback(() => {
@@ -106,7 +113,7 @@ export function BottomSheet({
         />
         <Animated.View
           style={[
-            { height: (windowHeight * heightPercent) / 100 },
+            { height: (windowHeight * clampedHeightPercent) / 100 },
             sheetStyle,
           ]}
           className="bg-cream-50 rounded-t-lg shadow-modal"

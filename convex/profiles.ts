@@ -15,15 +15,17 @@ type OnboardingStep =
 
 const MIN_PHOTOS_FOR_COMPLETE = 2;
 
-// Age bounds enforced by both the client filter sheet (TASK-041) and the
-// updatePreferences mutation. Server-side clamping keeps listFeed's age
-// filter predictable even if a client sends stale prefs from a previous version.
+// Preference bounds, aligned with the TASK-041 FilterSheet slider ranges
+// (18–70 age, 5–100 km distance). Keeping server and client bounds identical
+// avoids a rehydrate-clamp-overwrite data-loss path: if the server allowed
+// wider values than the client sliders, opening the sheet would clamp the
+// saved value down and Apply would silently narrow it.
 const MIN_AGE = 18;
-const MAX_AGE = 99;
+const MAX_AGE = 70;
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 
-const MIN_DISTANCE_KM = 1;
-const MAX_DISTANCE_KM = 500;
+const MIN_DISTANCE_KM = 5;
+const MAX_DISTANCE_KM = 100;
 
 function nextStep(
   user: Doc<'users'>,

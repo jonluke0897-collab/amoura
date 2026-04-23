@@ -32,9 +32,12 @@ const VALID_INTENTION_IDS = new Set<IntentionValue>(
 
 function sanitizeIntentions(input: unknown): IntentionValue[] {
   if (!Array.isArray(input)) return [];
-  return input.filter((i): i is IntentionValue =>
-    typeof i === 'string' && VALID_INTENTION_IDS.has(i as IntentionValue),
-  );
+  return input
+    .filter(
+      (i): i is IntentionValue =>
+        typeof i === 'string' && VALID_INTENTION_IDS.has(i as IntentionValue),
+    )
+    .slice(0, 3);
 }
 
 const AGE_MIN = 18;

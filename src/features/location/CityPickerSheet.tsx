@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { ChevronRight, MapPin, X } from 'lucide-react-native';
 import { Text } from '~/src/components/ui/Text';
@@ -32,23 +32,17 @@ export function CityPickerSheet({
 }: CityPickerSheetProps) {
   const { status, error, detectAndSave, saveManualCity, reset } =
     useLocationCity();
-  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible) {
-      reset();
-      setLocalError(null);
-    }
+    if (visible) reset();
   }, [visible, reset]);
 
   const handleDetect = async () => {
-    setLocalError(null);
     const city = await detectAndSave();
     if (city) onCitySet(city);
   };
 
   const handlePick = async (city: string) => {
-    setLocalError(null);
     const ok = await saveManualCity(city);
     if (ok) onCitySet(city);
   };
@@ -120,9 +114,9 @@ export function CityPickerSheet({
               below.
             </Text>
           )}
-          {(error || localError) && (
+          {error && (
             <Text variant="body" className="text-sm text-rose-700 mt-2">
-              {error ?? localError}
+              {error}
             </Text>
           )}
         </View>

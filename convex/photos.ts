@@ -122,8 +122,15 @@ export const reorder = mutation({
       throw new Error('Reorder list length does not match current photo count');
     }
     const ownedIds = new Set(current.map((p) => p._id));
+    const seen = new Set<Id<'photos'>>();
     for (const id of args.photoIds) {
       if (!ownedIds.has(id)) throw new Error('Not your photo');
+      // Reject duplicate ids so the new positions remain a bijection onto
+      // [0..N-1]. Without this a payload like [a, a, b] would silently patch
+      // one photo twice and leave another unassigned, breaking the
+      // contiguous-position invariant the rest of the app depends on.
+      if (seen.has(id)) throw new Error('Duplicate photo id in reorder list');
+      seen.add(id);
     }
     for (let i = 0; i < args.photoIds.length; i++) {
       await ctx.db.patch(args.photoIds[i], { position: i });

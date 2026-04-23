@@ -7,7 +7,11 @@ import type { Id } from '~/convex/_generated/dataModel';
 import { Text } from '~/src/components/ui/Text';
 import { Button } from '~/src/components/ui/Button';
 import { PhotoGrid } from '~/src/features/photos/PhotoGrid';
-import { usePhotoPicker, type PickedPhoto } from '~/src/features/photos/usePhotoPicker';
+import {
+  PhotoPermissionDeniedError,
+  usePhotoPicker,
+  type PickedPhoto,
+} from '~/src/features/photos/usePhotoPicker';
 import { PHOTOS_SCREEN } from '~/src/features/onboarding/onboardingCopy';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 
@@ -61,7 +65,7 @@ export default function PhotosScreen() {
     } catch (e) {
       if (__DEV__) console.error('[photos] pick/upload failed:', e);
       setError(
-        e instanceof Error && e.message.toLowerCase().includes('permission')
+        e instanceof PhotoPermissionDeniedError
           ? PHOTOS_SCREEN.permissionDeniedBody
           : PHOTOS_SCREEN.uploadFailedBody,
       );

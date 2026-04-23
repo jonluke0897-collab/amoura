@@ -218,10 +218,11 @@ export const acceptPledge = mutation({
       updatedAt: now,
     });
 
-    // onboardingComplete is intentionally NOT set here in Phase 2+. It flips
-    // to true only when profilePrompts.answerPrompt lands the third answer
-    // AND the profile already has the minimum photos. Pledge acceptance is a
-    // necessary step toward completion, not sufficient for it.
+    // onboardingComplete is intentionally NOT set here. Prompts are optional,
+    // so the boolean flips in profiles.markOnboardingComplete (called from
+    // complete.tsx on mount and as a migration fallback from the profile
+    // tab) once the user has the minimum photos in place. Pledge acceptance
+    // is a necessary step toward completion, not sufficient.
     await ctx.db.patch(user._id, {
       respectPledgeCompletedAt: now,
       extendedPledgeCompletedAt: args.pledgeType === 'extended' ? now : user.extendedPledgeCompletedAt,
@@ -256,6 +257,18 @@ export const markOnboardingComplete = mutation({
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .unique();
     if (!profile) return;
+
+    // Mirror the full nextStep() prerequisite chain so a direct / misrouted
+    // caller can't skip pledge+identity+intentions just because photos are in
+    // place. Any one of these gates missing means the user isn't actually
+    // ready to flip; silently no-op (client will retry when state catches up).
+    if (!profile.genderIdentity || profile.genderIdentity.trim() === '') return;
+    if (profile.pronouns.length === 0) return;
+    if (profile.orientation.length === 0) return;
+    if (profile.intentions.length === 0) return;
+    if (!profile.pledgeAcceptedAt) return;
+    if (!user.respectPledgeCompletedAt) return;
+    if (user.isCis === true && !user.extendedPledgeCompletedAt) return;
 
     const photoCount = (
       await ctx.db

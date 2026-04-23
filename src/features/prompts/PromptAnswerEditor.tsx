@@ -53,20 +53,31 @@ export function PromptAnswerEditor({
 }: PromptAnswerEditorProps) {
   const [text, setText] = useState(initialText);
   const inputRef = useRef<TextInput>(null);
+  // Tracks whether this open session has already seeded from initialText.
+  // Without it, a parent re-render that passes a stale initialText after the
+  // user has started typing would blow away the in-progress draft.
+  const hasSeededRef = useRef(false);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !hasSeededRef.current) {
       setText(initialText);
+      hasSeededRef.current = true;
       // Give the modal a tick to open before focusing, otherwise the keyboard
       // races with the modal animation and sometimes drops the focus request.
       const t = setTimeout(() => inputRef.current?.focus(), 250);
       return () => clearTimeout(t);
     }
+    if (!visible) {
+      hasSeededRef.current = false;
+    }
   }, [visible, initialText]);
 
+  // Counter tracks the raw text so users see their typing in real time, but
+  // overLimit gates on the trimmed length since that's what gets saved —
+  // otherwise trailing whitespace could block an otherwise-valid save.
   const length = text.length;
-  const overLimit = length > MAX;
   const trimmed = text.trim();
+  const overLimit = trimmed.length > MAX;
   const canSave = trimmed.length >= 1 && !overLimit && !submitting;
   const isDirty = text !== initialText;
 

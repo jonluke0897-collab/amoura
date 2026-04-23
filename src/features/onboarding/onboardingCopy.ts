@@ -65,7 +65,7 @@ export const PHOTOS_SCREEN = {
   permissionDeniedBody:
     'To add photos, turn on photo access for Amoura in your device settings.',
   uploadFailedTitle: 'Upload failed',
-  uploadFailedBody: 'Tap to try again.',
+  uploadFailedBody: "Couldn't upload that one — try picking it again.",
 };
 
 export const PROMPTS_SCREEN = {
@@ -91,6 +91,10 @@ export const PROMPTS_SCREEN = {
   removeAnswerTitle: 'Remove this answer?',
   removeAnswerConfirm: 'Remove',
   removeAnswerKeep: 'Keep',
+  saveFailedTitle: 'Save failed',
+  saveFailedBody: 'Please try again.',
+  removeFailedTitle: 'Remove failed',
+  removeFailedBody: 'Please try again.',
   nudgeRemainingSingular: '1 more prompt to round out your profile',
   nudgeRemainingPlural: '{n} more prompts to round out your profile',
   nudgeBody: 'Profiles with 3 prompts stand out more.',

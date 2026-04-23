@@ -164,6 +164,7 @@ export function ProfileView({
                     setFullScreenIndex(idx >= 0 ? idx : null);
                   }}
                   accessibilityRole="imagebutton"
+                  accessibilityLabel="View photo full screen"
                 >
                   <PhotoCarousel photos={[item.item]} aspectRatio={1} />
                 </Pressable>

@@ -74,8 +74,16 @@ export default function PromptsScreen() {
   const editExisting = (position: number) => {
     const existing = answered[position];
     if (!existing) return;
-    const prompt = activePrompts.find((p) => p._id === existing.promptId);
-    if (!prompt) return;
+    // Prompts can be deactivated after a user answers them (admin toggle).
+    // Fall back to the cached question/category on the answer row so the
+    // user can still read, edit, remove, or swap without hitting a dead-end.
+    const prompt: PromptSummary = activePrompts.find(
+      (p) => p._id === existing.promptId,
+    ) ?? {
+      _id: existing.promptId,
+      question: existing.question,
+      category: existing.category,
+    };
     setEditorState({
       open: true,
       position,
@@ -104,6 +112,7 @@ export default function PromptsScreen() {
       setEditorState({ open: false });
     } catch (e) {
       if (__DEV__) console.error('[prompts] save failed:', e);
+      Alert.alert(PROMPTS_SCREEN.saveFailedTitle, PROMPTS_SCREEN.saveFailedBody);
     } finally {
       setSubmitting(false);
     }
@@ -127,6 +136,10 @@ export default function PromptsScreen() {
               setEditorState({ open: false });
             } catch (e) {
               if (__DEV__) console.error('[prompts] remove failed:', e);
+              Alert.alert(
+                PROMPTS_SCREEN.removeFailedTitle,
+                PROMPTS_SCREEN.removeFailedBody,
+              );
             } finally {
               setSubmitting(false);
             }

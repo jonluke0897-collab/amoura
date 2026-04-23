@@ -17,6 +17,18 @@ type PermissionRequestResult = {
   canAskAgain: boolean;
 };
 
+/**
+ * Thrown when the user denies photo-library or camera access. The caller
+ * uses the instance check (not the message) to decide whether to show the
+ * "turn on access in settings" guidance vs. a generic error.
+ */
+export class PhotoPermissionDeniedError extends Error {
+  constructor(public readonly source: 'library' | 'camera') {
+    super(`Permission denied: ${source}`);
+    this.name = 'PhotoPermissionDeniedError';
+  }
+}
+
 async function resizeAndEncode(
   asset: ImagePicker.ImagePickerAsset,
 ): Promise<PickedPhoto> {
@@ -55,7 +67,9 @@ export function usePhotoPicker() {
   const pickFromLibrary = useCallback(async (): Promise<PickedPhoto | null> => {
     const perm: PermissionRequestResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return null;
+    // Differentiate denial from user-cancel: null means "user backed out of
+    // the picker," throw means "we need explicit permission guidance."
+    if (!perm.granted) throw new PhotoPermissionDeniedError('library');
 
     setIsProcessing(true);
     try {
@@ -75,7 +89,7 @@ export function usePhotoPicker() {
   const pickFromCamera = useCallback(async (): Promise<PickedPhoto | null> => {
     const perm: PermissionRequestResult =
       await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return null;
+    if (!perm.granted) throw new PhotoPermissionDeniedError('camera');
 
     setIsProcessing(true);
     try {

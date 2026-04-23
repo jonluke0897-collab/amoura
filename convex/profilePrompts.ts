@@ -149,6 +149,9 @@ export const removePrompt = mutation({
     const row = await ctx.db.get(args.profilePromptId);
     if (!row) throw new Error('Answer not found');
     if (row.userId !== user._id) throw new Error('Not your answer');
+    // Defense in depth: a user could conceivably have multiple profiles in a
+    // future design; pin ownership to the current profile too.
+    if (row.profileId !== profile._id) throw new Error('Not your answer');
 
     await ctx.db.delete(row._id);
 

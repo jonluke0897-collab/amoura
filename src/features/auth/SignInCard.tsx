@@ -8,6 +8,7 @@ import { Input } from '~/src/components/ui/Input';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { SIGN_IN } from '~/src/features/onboarding/onboardingCopy';
 import { useOAuthFlow } from './useOAuthFlow';
+import { PasswordLoginSheet } from './PasswordLoginSheet';
 
 // Local-part@domain.tld — basic structural check so we don't round-trip
 // obviously invalid input to Clerk. The server does the real validation.
@@ -21,6 +22,7 @@ export function SignInCard() {
   const track = useTrack();
 
   const [emailSheetOpen, setEmailSheetOpen] = useState(false);
+  const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -147,6 +149,13 @@ export function SignInCard() {
           disabled={busy !== null}
           onPress={openEmailSheet}
         />
+        <Button
+          label={SIGN_IN.logInCta}
+          variant="ghost"
+          size="lg"
+          disabled={busy !== null}
+          onPress={() => setPasswordSheetOpen(true)}
+        />
       </View>
 
       {error && !emailSheetOpen ? (
@@ -259,6 +268,11 @@ export function SignInCard() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <PasswordLoginSheet
+        visible={passwordSheetOpen}
+        onClose={() => setPasswordSheetOpen(false)}
+      />
     </View>
   );
 }

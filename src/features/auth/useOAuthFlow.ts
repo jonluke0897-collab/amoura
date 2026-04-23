@@ -153,5 +153,40 @@ export function useOAuthFlow() {
     [signIn, signUp, setActive],
   );
 
-  return { signInWith, sendEmailCode, verifyEmailCode, busy };
+  // Fast path for returning users: email + password in a single round-trip,
+  // no email code. Returns `incomplete` if Clerk needs more factors (e.g.
+  // a MFA flow we don't support yet) so the caller can fall back to the
+  // code flow without the user bouncing.
+  const signInWithPassword = useCallback(
+    async (
+      email: string,
+      password: string,
+    ): Promise<{ status: 'complete' | 'incomplete' }> => {
+      const identifier = email.trim();
+      if (!identifier) throw new Error('Enter a valid email address');
+      if (!password) throw new Error('Enter your password');
+      if (!signInLoaded || !signIn || !setActive) {
+        throw new Error('Sign-in not ready yet, try again in a moment');
+      }
+
+      setBusy('email');
+      try {
+        const attempt = await signIn.create({
+          identifier,
+          password,
+          strategy: 'password',
+        });
+        if (attempt.status === 'complete' && attempt.createdSessionId) {
+          await setActive({ session: attempt.createdSessionId });
+          return { status: 'complete' };
+        }
+        return { status: 'incomplete' };
+      } finally {
+        setBusy(null);
+      }
+    },
+    [signIn, setActive, signInLoaded],
+  );
+
+  return { signInWith, sendEmailCode, verifyEmailCode, signInWithPassword, busy };
 }

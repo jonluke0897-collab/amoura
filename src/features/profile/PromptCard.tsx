@@ -36,6 +36,7 @@ export function PromptCard({
             accessibilityLabel="Like this prompt"
             hitSlop={8}
             disabled={!onLike}
+            style={{ opacity: onLike ? 1 : 0.4 }}
           >
             <Heart color="#6D28D9" size={22} />
           </Pressable>

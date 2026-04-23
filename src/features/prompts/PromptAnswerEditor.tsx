@@ -155,8 +155,7 @@ export function PromptAnswerEditor({
                 overLimit ? 'text-rose-700' : 'text-plum-400',
               )}
             >
-              {length}
-              {PROMPTS_SCREEN.counterSuffix}
+              {length}/{MAX}
             </Text>
           </View>
 
@@ -175,7 +174,10 @@ export function PromptAnswerEditor({
               accessibilityRole="button"
               hitSlop={8}
               disabled={submitting}
-              className="self-center mb-3 py-2"
+              className={cn(
+                'self-center mb-3 py-2',
+                submitting && 'opacity-50',
+              )}
             >
               <Text
                 variant="body"

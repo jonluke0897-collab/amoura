@@ -41,9 +41,21 @@ export default function OnboardingLayout() {
     lastStepRef.current = step;
   }, [step]);
 
+  // Edit mode reuses the onboarding routes but isn't a funnel in progress, so
+  // don't emit ONBOARDING_ABANDONED if the user backgrounds while editing —
+  // that would pollute the abandonment metric with healthy post-onboarding
+  // traffic. Kept in a ref so the listener effect can stay mount-scoped.
+  const isEditModeRef = useRef(isEditMode);
+  isEditModeRef.current = isEditMode;
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'background' && lastStepRef.current && lastStepRef.current !== 'complete') {
+      if (
+        next === 'background' &&
+        !isEditModeRef.current &&
+        lastStepRef.current &&
+        lastStepRef.current !== 'complete'
+      ) {
         trackRef.current(AnalyticsEvents.ONBOARDING_ABANDONED, { lastStep: lastStepRef.current });
       }
     });

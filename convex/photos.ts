@@ -79,9 +79,10 @@ export const finalizeUpload = mutation({
       if (existing.length >= MAX_PHOTOS) {
         throw new Error(`Maximum ${MAX_PHOTOS} photos per profile`);
       }
-      const nextPosition = existing.length === 0
-        ? 0
-        : Math.max(...existing.map((p) => p.position)) + 1;
+      // existing.length is always the right next position because remove()
+      // repacks gaps and reorder() is a bijection on [0..N-1]. Using Math.max
+      // + 1 would strand holes if we ever hit a non-contiguous state.
+      const nextPosition = existing.length;
       const now = Date.now();
       const photoId = await ctx.db.insert('photos', {
         profileId: profile._id,

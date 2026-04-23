@@ -81,7 +81,6 @@ export const PROMPTS_SCREEN = {
   skipCta: 'Skip for now',
   saveCta: 'Save',
   characterLimit: 250,
-  counterSuffix: '/250',
   editorPlaceholder: 'Write your answer…',
   emptySlotLabel: 'Pick a prompt',
   discardTitle: 'Discard changes?',

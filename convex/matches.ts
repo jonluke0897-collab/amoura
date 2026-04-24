@@ -213,7 +213,38 @@ async function resolveRow(
 ): Promise<MatchListItem | null> {
   const counterpartyId =
     match.userAId === viewerId ? match.userBId : match.userAId;
-  const [counterparty, counterpartyProfile] = await Promise.all([
+  const hydrated = await hydrateCounterparty(ctx, counterpartyId);
+  if (!hydrated) return null;
+  const unreadCount =
+    match.userAId === viewerId ? match.unreadCountA : match.unreadCountB;
+  return {
+    matchId: match._id,
+    counterpartyUserId: counterpartyId,
+    counterpartyDisplayName: hydrated.displayName,
+    counterpartyPhotoUrl: hydrated.photoUrl,
+    lastMessageAt: match.lastMessageAt ?? null,
+    lastMessagePreview: match.lastMessagePreview ?? null,
+    unreadCount,
+    createdAt: match.createdAt,
+  };
+}
+
+/**
+ * Fetch a counterparty's user + profile + first-photo URL, gated on
+ * `accountStatus === 'active'`. Returns null when the counterparty is
+ * missing, deactivated, suspended, or banned — callers use that to hide
+ * the row from list/detail views. Consolidated so visibility rules live
+ * in one place; resolveRow (listMine) and the `get` query both rely on it.
+ */
+async function hydrateCounterparty(
+  ctx: QueryCtx,
+  counterpartyId: Id<'users'>,
+): Promise<{
+  displayName: string;
+  photoUrl: string | null;
+  profile: Doc<'profiles'> | null;
+} | null> {
+  const [counterparty, profile] = await Promise.all([
     ctx.db.get(counterpartyId),
     ctx.db
       .query('profiles')
@@ -221,21 +252,10 @@ async function resolveRow(
       .unique(),
   ]);
   if (!counterparty || counterparty.accountStatus !== 'active') return null;
-  const photoUrl = counterpartyProfile
-    ? await firstPhotoUrlForProfile(ctx, counterpartyProfile._id)
+  const photoUrl = profile
+    ? await firstPhotoUrlForProfile(ctx, profile._id)
     : null;
-  const unreadCount =
-    match.userAId === viewerId ? match.unreadCountA : match.unreadCountB;
-  return {
-    matchId: match._id,
-    counterpartyUserId: counterpartyId,
-    counterpartyDisplayName: counterparty.displayName,
-    counterpartyPhotoUrl: photoUrl,
-    lastMessageAt: match.lastMessageAt ?? null,
-    lastMessagePreview: match.lastMessagePreview ?? null,
-    unreadCount,
-    createdAt: match.createdAt,
-  };
+  return { displayName: counterparty.displayName, photoUrl, profile };
 }
 
 async function firstPhotoUrlForProfile(
@@ -268,28 +288,17 @@ export const get = query({
 
     const counterpartyId =
       match.userAId === user._id ? match.userBId : match.userAId;
-    const [counterparty, counterpartyProfile] = await Promise.all([
-      ctx.db.get(counterpartyId),
-      ctx.db
-        .query('profiles')
-        .withIndex('by_user', (q) => q.eq('userId', counterpartyId))
-        .unique(),
-    ]);
-    // Mirror listMine's active-account guard — a deactivated/suspended
-    // counterparty's chat must not reopen via a stale route or push.
-    if (!counterparty || counterparty.accountStatus !== 'active') return null;
-    const photoUrl = counterpartyProfile
-      ? await firstPhotoUrlForProfile(ctx, counterpartyProfile._id)
-      : null;
+    const hydrated = await hydrateCounterparty(ctx, counterpartyId);
+    if (!hydrated) return null;
 
     return {
       matchId: match._id,
       counterpartyUserId: counterpartyId,
-      counterpartyDisplayName: counterparty.displayName,
-      counterpartyPhotoUrl: photoUrl,
-      counterpartyPronouns: counterpartyProfile?.pronouns ?? [],
+      counterpartyDisplayName: hydrated.displayName,
+      counterpartyPhotoUrl: hydrated.photoUrl,
+      counterpartyPronouns: hydrated.profile?.pronouns ?? [],
       counterpartyIdentityLabel:
-        counterpartyProfile?.genderIdentity ?? 'person',
+        hydrated.profile?.genderIdentity ?? 'person',
       createdAt: match.createdAt,
     };
   },

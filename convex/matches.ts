@@ -173,50 +173,66 @@ export const listMine = query({
       ? Number.parseInt(args.paginationOpts.cursor, 10)
       : 0;
     const startIdx = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    const endIdx = startIdx + args.paginationOpts.numItems;
-    const pageSlice = visible.slice(startIdx, endIdx);
-    const isDone = endIdx >= visible.length;
+    const numItems = args.paginationOpts.numItems;
 
-    const maybeRows = await Promise.all(
-      pageSlice.map(async (match): Promise<MatchListItem | null> => {
-        const counterpartyId =
-          match.userAId === user._id ? match.userBId : match.userAId;
-        const [counterparty, counterpartyProfile] = await Promise.all([
-          ctx.db.get(counterpartyId),
-          ctx.db
-            .query('profiles')
-            .withIndex('by_user', (q) => q.eq('userId', counterpartyId))
-            .unique(),
-        ]);
-        if (!counterparty || counterparty.accountStatus !== 'active') {
-          return null;
-        }
-        const photoUrl = counterpartyProfile
-          ? await firstPhotoUrlForProfile(ctx, counterpartyProfile._id)
-          : null;
-        const unreadCount =
-          match.userAId === user._id ? match.unreadCountA : match.unreadCountB;
-        return {
-          matchId: match._id,
-          counterpartyUserId: counterpartyId,
-          counterpartyDisplayName: counterparty.displayName,
-          counterpartyPhotoUrl: photoUrl,
-          lastMessageAt: match.lastMessageAt ?? null,
-          lastMessagePreview: match.lastMessagePreview ?? null,
-          unreadCount,
-          createdAt: match.createdAt,
-        };
-      }),
-    );
-    const page = maybeRows.filter((r): r is MatchListItem => r !== null);
+    // Scan forward from startIdx, resolving in parallel batches until we've
+    // accumulated `numItems` displayable rows OR exhausted the list. Naive
+    // slice-then-filter could return an empty page if every candidate in
+    // the slice has a deactivated counterparty, while later valid rows
+    // stay hidden until the client manually keeps paginating.
+    const page: MatchListItem[] = [];
+    let inspected = startIdx;
+    while (page.length < numItems && inspected < visible.length) {
+      const batchSize = Math.min(
+        numItems - page.length,
+        visible.length - inspected,
+      );
+      const batch = visible.slice(inspected, inspected + batchSize);
+      const resolved = await Promise.all(batch.map((m) => resolveRow(ctx, user._id, m)));
+      for (const row of resolved) if (row) page.push(row);
+      inspected += batchSize;
+    }
+    const isDone = inspected >= visible.length;
 
     return {
       page,
       isDone,
-      continueCursor: isDone ? '' : String(endIdx),
+      continueCursor: isDone ? '' : String(inspected),
     };
   },
 });
+
+async function resolveRow(
+  ctx: QueryCtx,
+  viewerId: Id<'users'>,
+  match: Doc<'matches'>,
+): Promise<MatchListItem | null> {
+  const counterpartyId =
+    match.userAId === viewerId ? match.userBId : match.userAId;
+  const [counterparty, counterpartyProfile] = await Promise.all([
+    ctx.db.get(counterpartyId),
+    ctx.db
+      .query('profiles')
+      .withIndex('by_user', (q) => q.eq('userId', counterpartyId))
+      .unique(),
+  ]);
+  if (!counterparty || counterparty.accountStatus !== 'active') return null;
+  const photoUrl = counterpartyProfile
+    ? await firstPhotoUrlForProfile(ctx, counterpartyProfile._id)
+    : null;
+  const unreadCount =
+    match.userAId === viewerId ? match.unreadCountA : match.unreadCountB;
+  return {
+    matchId: match._id,
+    counterpartyUserId: counterpartyId,
+    counterpartyDisplayName: counterparty.displayName,
+    counterpartyPhotoUrl: photoUrl,
+    lastMessageAt: match.lastMessageAt ?? null,
+    lastMessagePreview: match.lastMessagePreview ?? null,
+    unreadCount,
+    createdAt: match.createdAt,
+  };
+}
 
 async function firstPhotoUrlForProfile(
   ctx: QueryCtx,

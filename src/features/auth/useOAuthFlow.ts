@@ -31,6 +31,16 @@ const isUserNotFoundError = (e: unknown) =>
 const isIncorrectCodeError = (e: unknown) =>
   hasErrorCode(e, 'form_code_incorrect');
 
+// Clerk returns `form_password_or_identifier_incorrect` for wrong-password
+// *and* wrong-identifier from a password sign-in — the combined code is
+// deliberate (don't leak "user exists but password is wrong"). We treat any
+// of these three as an "invalid credentials" signal so the UI can render a
+// single generic error.
+const isInvalidCredentialsError = (e: unknown) =>
+  hasErrorCode(e, 'form_identifier_not_found') ||
+  hasErrorCode(e, 'form_password_incorrect') ||
+  hasErrorCode(e, 'form_password_or_identifier_incorrect');
+
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
   const googleFlow = useOAuth({ strategy: 'oauth_google' });
@@ -168,14 +178,15 @@ export function useOAuthFlow() {
   );
 
   // Fast path for returning users: email + password in a single round-trip,
-  // no email code. Returns `incomplete` if Clerk needs more factors (e.g.
-  // a MFA flow we don't support yet) so the caller can fall back to the
-  // code flow without the user bouncing.
+  // no email code. `invalid_credentials` is surfaced as a first-class status
+  // (rather than a thrown Clerk error) so the caller can render a single
+  // generic error string without sniffing message text. `incomplete` covers
+  // future MFA flows we don't support yet.
   const signInWithPassword = useCallback(
     async (
       email: string,
       password: string,
-    ): Promise<{ status: 'complete' | 'incomplete' }> => {
+    ): Promise<{ status: 'complete' | 'incomplete' | 'invalid_credentials' }> => {
       const identifier = email.trim();
       if (!identifier) throw new Error('Enter a valid email address');
       if (!password) throw new Error('Enter your password');
@@ -185,19 +196,25 @@ export function useOAuthFlow() {
 
       setBusy('email');
       try {
-        // Clerk's legacy sign-in `create` takes identifier + password
-        // directly — there is no `strategy` parameter on this method
-        // signature. Passing one is typed-but-unsupported; dropping it
-        // keeps the runtime shape aligned with Clerk's API.
-        const attempt = await signIn.create({
-          identifier,
-          password,
-        });
-        if (attempt.status === 'complete' && attempt.createdSessionId) {
-          await setActive({ session: attempt.createdSessionId });
-          return { status: 'complete' };
+        try {
+          // Clerk's legacy sign-in `create` takes identifier + password
+          // directly — there is no `strategy` parameter on this method
+          // signature. Passing one is typed-but-unsupported.
+          const attempt = await signIn.create({
+            identifier,
+            password,
+          });
+          if (attempt.status === 'complete' && attempt.createdSessionId) {
+            await setActive({ session: attempt.createdSessionId });
+            return { status: 'complete' };
+          }
+          return { status: 'incomplete' };
+        } catch (e) {
+          if (isInvalidCredentialsError(e)) {
+            return { status: 'invalid_credentials' };
+          }
+          throw e;
         }
-        return { status: 'incomplete' };
       } finally {
         setBusy(null);
       }

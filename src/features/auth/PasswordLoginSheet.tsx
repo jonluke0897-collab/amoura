@@ -80,19 +80,20 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
         track(AnalyticsEvents.SIGN_IN_SUCCEEDED, { method: 'email_password' });
         handleClose();
         router.replace('/');
+      } else if (result.status === 'invalid_credentials') {
+        // Hook already collapsed wrong-identifier / wrong-password into
+        // this single status — the generic copy is by design so we don't
+        // leak "user exists but password is wrong".
+        track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email_password' });
+        setError(SIGN_IN.logInFailed);
       } else {
+        // 'incomplete' — Clerk needs more factors (future MFA). Surface
+        // a generic retry message; we don't handle 2FA yet.
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {
       track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email_password' });
-      // Clerk surfaces wrong-password / unknown-user as structured errors;
-      // we collapse them into the single generic message so we don't leak
-      // "user exists but password is wrong" (minor auth-hygiene win).
-      const message = e instanceof Error ? e.message : '';
-      const isCredentialError =
-        message.toLowerCase().includes('password') ||
-        message.toLowerCase().includes('identifier');
-      setError(isCredentialError ? SIGN_IN.logInFailed : message || 'Log in failed.');
+      setError(e instanceof Error ? e.message : 'Log in failed.');
     }
   };
 

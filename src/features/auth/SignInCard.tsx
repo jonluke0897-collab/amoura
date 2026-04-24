@@ -120,6 +120,11 @@ export function SignInCard() {
   };
 
   const closeEmailSheet = () => {
+    // Block dismissal while sendEmailCode / verifyEmailCode is in flight.
+    // Otherwise the in-flight request can still resolve, call
+    // router.replace('/'), and silently sign the user in after they
+    // visibly cancelled — a "dismissed but still authenticated" surprise.
+    if (busy === 'email') return;
     setEmailSheetOpen(false);
     // Delay reset so the sheet animates out first — otherwise the user
     // sees the email step flash back as the modal closes. Clear any
@@ -198,11 +203,13 @@ export function SignInCard() {
           <View className="flex-row justify-end p-4">
             <Pressable
               onPress={closeEmailSheet}
+              disabled={busy === 'email'}
               accessibilityRole="button"
               accessibilityLabel="Close"
+              accessibilityState={{ disabled: busy === 'email' }}
               className="p-2"
             >
-              <X color="#6D28D9" size={24} />
+              <X color={busy === 'email' ? '#A78BFA' : '#6D28D9'} size={24} />
             </Pressable>
           </View>
           <View className="flex-1 px-5">

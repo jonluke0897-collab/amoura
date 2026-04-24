@@ -145,8 +145,12 @@ export const listMine = query({
     ]);
 
     const all: Doc<'matches'>[] = [...asUserA, ...asUserB];
+    // Default-accept by filtering on `status === 'unmatched'` rather than
+    // `status !== 'active'`. If a hypothetical pre-migration row lacks the
+    // status field (schema requires it now, but defensive against future
+    // enum additions) it stays visible instead of getting silently hidden.
     const visible = all.filter((m) => {
-      if (m.status !== 'active') return false;
+      if (m.status === 'unmatched') return false;
       const iAmA = m.userAId === user._id;
       return iAmA ? !m.isArchivedByA : !m.isArchivedByB;
     });
@@ -231,7 +235,7 @@ export const get = query({
     const match = await ctx.db.get(args.matchId);
     if (!match) return null;
     if (match.userAId !== user._id && match.userBId !== user._id) return null;
-    if (match.status !== 'active') return null;
+    if (match.status === 'unmatched') return null;
 
     const counterpartyId =
       match.userAId === user._id ? match.userBId : match.userAId;

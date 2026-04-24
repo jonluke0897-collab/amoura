@@ -27,6 +27,9 @@ export function Avatar({
   photoOpacity = 1,
   className,
 }: AvatarProps) {
+  // Clamp to RN's valid opacity range; values outside [0, 1] render
+  // inconsistently across iOS/Android/web so we normalize at the boundary.
+  const safeOpacity = Math.max(0, Math.min(1, photoOpacity));
   return (
     <View
       className={cn(
@@ -38,7 +41,7 @@ export function Avatar({
       {photoUrl ? (
         <Image
           source={{ uri: photoUrl }}
-          style={{ width: '100%', height: '100%', opacity: photoOpacity }}
+          style={{ width: '100%', height: '100%', opacity: safeOpacity }}
           contentFit="cover"
         />
       ) : (

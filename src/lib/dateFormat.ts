@@ -16,7 +16,9 @@ export function formatClockTime(ts: number): string {
 }
 
 export function formatMatchListActivity(ts: number, now: number = Date.now()): string {
-  const diffMs = now - ts;
+  // Clamp to non-negative so client-clock-ahead-of-server skew renders as
+  // "now" rather than a negative-minutes intermediate.
+  const diffMs = Math.max(0, now - ts);
   const diffMin = Math.floor(diffMs / 60_000);
   if (diffMin < 1) return 'now';
   if (diffMin < 60) return `${diffMin}m`;

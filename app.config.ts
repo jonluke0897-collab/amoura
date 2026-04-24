@@ -55,12 +55,11 @@ const config: ExpoConfig = {
     [
       'onesignal-expo-plugin',
       {
-        // 'development' wires the APNs sandbox cert path for dev builds.
-        // Flip to 'production' for release builds — EAS build profiles can
-        // override this via `ios.config` / `android.config` if the app
-        // ever ships a single JS bundle for both. For now, dev-only is
-        // sufficient; release build switch is a TASK-055 follow-up.
-        mode: 'development',
+        // 'development' wires the APNs sandbox cert path; 'production'
+        // switches to the APNs production cert. EAS release profiles set
+        // ONESIGNAL_MODE=production at build time; local dev defaults to
+        // sandbox. No other value is accepted.
+        mode: process.env.ONESIGNAL_MODE === 'production' ? 'production' : 'development',
         // iOS dev team + iPhoneDeploymentTarget would go here once we have
         // signing set up in EAS. Not required for Android dev builds.
       },

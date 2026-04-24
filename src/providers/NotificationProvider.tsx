@@ -35,12 +35,16 @@ let initialized = false;
 function initializeOneSignal(appId: string) {
   if (initialized) return;
   if (!hasNativeOneSignal) return;
-  initialized = true;
 
   if (__DEV__) {
     OneSignal.Debug.setLogLevel(LogLevel.Warn);
   }
   OneSignal.initialize(appId);
+  // Set the flag AFTER initialize so a throw during init doesn't lock us
+  // out of retrying on the next render. `initialize` is documented as
+  // fire-and-forget void, but we still don't want to pretend we succeeded
+  // if the JS side throws for any reason.
+  initialized = true;
 }
 
 /**
@@ -82,13 +86,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!appId) return;
     if (!hasNativeOneSignal) return;
     if (!initialized) return;
+    // Sign-out: `me === null` means Convex resolved but there's no authed
+    // user. Clear the OneSignal external ID so a subsequent sign-in on the
+    // same device doesn't receive pushes targeted at the previous user.
+    // `me === undefined` (still loading) skips either action.
+    if (me === null) {
+      OneSignal.logout();
+      return;
+    }
     if (!me?.user) return;
     // External ID = Convex userId. The Convex notifications action targets
     // this via OneSignal's `include_aliases: { external_id: [...] }`. Keeping
     // the mapping server-side (rather than client-side player IDs) means a
     // fresh install still delivers as soon as the user signs in.
     OneSignal.login(me.user._id);
-  }, [appId, me?.user]);
+  }, [appId, me]);
 
   if (!appId) {
     if (__DEV__) {

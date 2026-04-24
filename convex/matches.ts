@@ -58,13 +58,17 @@ export async function createMatch(
   if (active) return active._id;
 
   const now = Date.now();
+  // Only the initiator (whose original like was just reciprocated) gets
+  // the unread badge for the seed message — they weren't in the app when
+  // the match landed. The recipient JUST tapped Match, so their Matches
+  // tab would otherwise show a "1 unread" dot for an event they triggered.
   const matchId = await ctx.db.insert('matches', {
     userAId,
     userBId,
     initiatedByLikeId: args.initiatedByLikeId,
     status: 'active',
-    unreadCountA: 1,
-    unreadCountB: 1,
+    unreadCountA: userAId === args.initiatorUserId ? 1 : 0,
+    unreadCountB: userBId === args.initiatorUserId ? 1 : 0,
     isArchivedByA: false,
     isArchivedByB: false,
     lastMessageAt: now,

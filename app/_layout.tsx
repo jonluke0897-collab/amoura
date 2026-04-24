@@ -12,6 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ClerkProvider } from '~/src/providers/ClerkProvider';
 import { ConvexProvider } from '~/src/providers/ConvexProvider';
 import { AnalyticsProvider } from '~/src/providers/AnalyticsProvider';
+import { NotificationProvider } from '~/src/providers/NotificationProvider';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 
 SplashScreen.preventAutoHideAsync();
@@ -49,11 +50,13 @@ export default function RootLayout() {
       <ClerkProvider>
         <ConvexProvider>
           <AnalyticsProvider>
-            <SafeAreaProvider>
-              <AppOpenedEvent />
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false }} />
-            </SafeAreaProvider>
+            <NotificationProvider>
+              <SafeAreaProvider>
+                <AppOpenedEvent />
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false }} />
+              </SafeAreaProvider>
+            </NotificationProvider>
           </AnalyticsProvider>
         </ConvexProvider>
       </ClerkProvider>

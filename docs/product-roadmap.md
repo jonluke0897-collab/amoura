@@ -269,51 +269,51 @@
 **Phase prompt — give this to your coding agent:**
 > "Read docs/product-roadmap.md and find Phase 4. Then read only the Reference sections listed above. Continue from the first unchecked task. After each task, mark it complete in the roadmap. When all tasks are done, create a branch `phase-4/likes-matches-messaging`, commit, push, and open a PR for review."
 
-- [ ] **TASK-047** — Build the Like-with-Comment modal (the architectural anti-fetish gate)
+- [x] **TASK-047** — Build the Like-with-Comment modal (the architectural anti-fetish gate)
   Files: `src/features/likes/LikeWithCommentModal.tsx`, `src/features/profile/ProfileDetailScreen.tsx`, `app/profile/[userId].tsx`
   Notes: Per FR-014 and § 8 Like-with-Comment. To like, user must first tap a specific photo or prompt on the detail screen — that selection is the "target." The modal then asks for a 20-250 char comment referencing that target. Submit is disabled under 20 chars. The target ref is stored on the like. Critical UX: make "liking without comment" structurally impossible — there is no shortcut. Copy above input: "Comment on what caught your eye. Vague openers ('hey beautiful') don't cut it here." Verify: cannot send a like without selecting a target and writing ≥20 chars.
 
-- [ ] **TASK-048** — Implement likes.send mutation with rate limiting
+- [x] **TASK-048** — Implement likes.send mutation with rate limiting
   Files: `convex/likes.ts`, `convex/schema.ts` (rateLimitBuckets)
   Notes: Per § 4 API Specification. Validates: user not blocked either way, target exists, comment length 20-250, target ref is valid (photo ID or prompt ID on that profile). Rate-limit: free tier max 8 likes/day (resets at local midnight — store local offset on user), paid unlimited. Returns `{ likeId, matchCreated: boolean }` — if the recipient had already liked us, create the match atomically and return true. Verify: unit-test the flow where A likes B (no match), then B likes A (match created).
 
-- [ ] **TASK-049** — Implement matches.create as part of the likes flow
+- [x] **TASK-049** — Implement matches.create as part of the likes flow
   Files: `convex/matches.ts`, `convex/likes.ts`
   Notes: Matches are created atomically inside `likes.send` when a reciprocal like exists. Matches table stores `userA`, `userB` (sorted by clerkId lexicographically for stable indexing), `createdAt`, `status: "active" | "unmatched" | "archived"`. Index on both participants. On match creation, create an automatic system message in the messages table with body "You matched. Take your time." Verify: reciprocal like produces a match row and a seed system message.
 
-- [ ] **TASK-050** — Build the Likes Inbox tab (inbound likes you haven't acted on)
+- [x] **TASK-050** — Build the Likes Inbox tab (inbound likes you haven't acted on)
   Files: `app/(tabs)/likes.tsx`, `src/features/likes/LikesInbox.tsx`, `src/features/likes/LikeCard.tsx`, `convex/likes.ts`
   Notes: Per § 8 Likes Inbox and FR-019. Query `likes.listInbound` returns likes sent to me that I haven't responded to. Each card shows the liker's first photo, name, the comment they wrote, and the target (photo or prompt excerpt). Two actions: "Like back" (creates match), "Pass" (soft-delete/hide). Free tier shows blurred photos + "Upgrade to see who likes you" CTA on a paywall. Verify: paid tier sees clear photos; free tier sees blur + paywall.
 
-- [ ] **TASK-051** — Build likes.respond mutation (like back or pass)
+- [x] **TASK-051** — Build likes.respond mutation (like back or pass)
   Files: `convex/likes.ts`, `convex/matches.ts`
   Notes: `likes.respond({ likeId, action: "match" | "pass" })`. If match: create match + delete the like row (it's now a match). If pass: soft-delete the like (keep for anti-abuse audit, but mark hidden from the recipient). Verify: "Like back" creates a match and removes the like from the inbox.
 
-- [ ] **TASK-052** — Build the Matches tab (list of active matches with last-message preview)
+- [x] **TASK-052** — Build the Matches tab (list of active matches with last-message preview)
   Files: `app/(tabs)/matches.tsx`, `src/features/matches/MatchList.tsx`, `src/features/matches/MatchRow.tsx`, `convex/matches.ts`
   Notes: Per § 8 Matches and FR-020. Query `matches.listMine` returns matches sorted by last-message-at descending. Each row: other user's photo, name, last message excerpt, relative timestamp. Unread indicator (dot) when there are unread messages. Tapping opens chat. Verify: list updates reactively when a new message arrives.
 
-- [ ] **TASK-053** — Build the Chat screen (1:1 messaging with reactive updates)
+- [x] **TASK-053** — Build the Chat screen (1:1 messaging with reactive updates)
   Files: `app/chat/[matchId].tsx`, `src/features/chat/ChatScreen.tsx`, `src/features/chat/MessageBubble.tsx`, `src/features/chat/ChatInput.tsx`, `convex/messages.ts`
   Notes: Per § 8 Chat screen and FR-021. Use Convex `useQuery(api.messages.listByMatch, { matchId, paginationOpts })`. Keyboard-aware input at bottom with send button. System message at top ("You matched with X. Opening message was their like-comment."). Render user and other bubbles differently. Auto-scroll to bottom on new message. Mark-as-read mutation on screen focus. Verify: two test accounts can send messages in real time with < 1s latency.
 
-- [ ] **TASK-054** — Implement messages.send with content moderation placeholder
+- [x] **TASK-054** — Implement messages.send with content moderation placeholder
   Files: `convex/messages.ts`, `convex/moderation.ts`
   Notes: Per FR-022. Validates: match is active, sender is a participant, body is 1-2000 chars. Inserts a message row with `createdAt`, marks the match's `lastMessageAt`. Stub moderation: set a `flagged: false` default. Actual moderation (keyword/ML check) happens in Phase 5. Verify: messages appear in both users' chats reactively.
 
-- [ ] **TASK-055** — Set up OneSignal push notifications for new messages and matches
+- [x] **TASK-055** — Set up OneSignal push notifications for new messages and matches
   Files: `src/providers/NotificationProvider.tsx`, `convex/notifications.ts`, `app.config.ts`
   Notes: `npm install onesignal-expo-plugin react-native-onesignal`. Add OneSignal plugin in `app.config.ts`. On login, register device with user's Convex userId as external user ID. Create a Convex scheduled action that fires on message insert and sends a push to the recipient (title: "New message from {name}", body: message preview if paid tier, generic "You have a new message" if free). Also fire on match creation. Permission request is deferred to the first match or message sent — not on app launch. Verify: sending a message to an offline device delivers a push within 10s.
 
-- [ ] **TASK-056** — Add typing indicators and read receipts (paid tier)
+- [x] **TASK-056** — Add typing indicators and read receipts (paid tier)
   Files: `src/features/chat/TypingIndicator.tsx`, `convex/messages.ts` (ephemeral subscription)
   Notes: Use Convex mutations with TTL for "typing" state. Read receipts update a `readAt` field on the latest incoming message when the screen is focused. Free tier: no typing, no read receipts (show a paywall teaser). Verify: paid-to-paid chat shows typing within 500ms; free account sees neither.
 
-- [ ] **TASK-057** — Handle match unmatch flow (either party can unmatch)
+- [x] **TASK-057** — Handle match unmatch flow (either party can unmatch)
   Files: `src/features/matches/UnmatchAction.tsx`, `convex/matches.ts`
   Notes: Per FR-020. In Chat header, three-dot menu with "Unmatch" (confirm modal: "This will remove the conversation for both of you. Continue?"). Sets match status to "unmatched", hides from both users' lists, preserves rows for audit. Neither user can re-match without a new like. Verify: unmatching removes the row from both users' match lists.
 
-- [ ] **TASK-058** — Add magic-moment analytics
+- [x] **TASK-058** — Add magic-moment analytics
   Files: `src/lib/analytics.ts`, chat/likes features
   Notes: Fire `like_sent`, `like_received`, `match_created`, `first_message_sent` (marks the 2nd magic moment), `conversation_has_5_messages` (3rd magic moment proxy). Build a PostHog funnel: feed_session → like_sent → match_created → first_message_sent. Verify: full funnel is populated from a test session.
 

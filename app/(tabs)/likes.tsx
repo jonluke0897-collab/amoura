@@ -1,14 +1,19 @@
 import { View } from 'react-native';
-import { ScreenContainer } from '~/src/components/ui/ScreenContainer';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '~/src/components/ui/Text';
+import { LikesInbox } from '~/src/features/likes/LikesInbox';
 
-export default function Likes() {
+export default function LikesTab() {
   return (
-    <ScreenContainer>
-      <View className="flex-1 items-center justify-center">
-        <Text variant="heading" className="text-3xl">Likes</Text>
-        <Text variant="caption" className="mt-2">Inbox lands in Phase 4.</Text>
-      </View>
-    </ScreenContainer>
+    <View className="flex-1 bg-cream-50">
+      <SafeAreaView edges={['top']} className="bg-cream-50">
+        <View className="px-5 pt-2 pb-3">
+          <Text variant="heading" className="text-2xl text-plum-900">
+            Likes
+          </Text>
+        </View>
+      </SafeAreaView>
+      <LikesInbox />
+    </View>
   );
 }

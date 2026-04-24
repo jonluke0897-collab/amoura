@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { internalMutation, mutation, query } from './_generated/server';
+import { hasActiveSubscription } from './lib/rateLimit';
 
 // Current user (joined through Clerk identity → users table).
 export const me = query({
@@ -19,10 +20,18 @@ export const me = query({
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .unique();
 
+    // hasActiveSubscription is the single gate for paid-tier features in
+    // Phase 4 (Likes Inbox unblur, read receipts, future unlimited likes).
+    // Until Phase 6 wires RevenueCat it always returns false — the gate is
+    // in place so the moment subscriptions.* rows populate, every paywall
+    // switches on together.
+    const isPaid = await hasActiveSubscription(ctx, user._id);
+
     return {
       user,
       profile,
       onboardingComplete: user.onboardingComplete,
+      hasActiveSubscription: isPaid,
     };
   },
 });

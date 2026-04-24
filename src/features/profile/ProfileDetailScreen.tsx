@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,8 @@ import type { Id } from '~/convex/_generated/dataModel';
 import { Text } from '~/src/components/ui/Text';
 import { Button } from '~/src/components/ui/Button';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
-import { ProfileView } from './ProfileView';
+import { LikeWithCommentModal } from '~/src/features/likes/LikeWithCommentModal';
+import { ProfileView, type LikeTarget } from './ProfileView';
 
 export type ProfileDetailScreenProps = {
   userId: Id<'users'>;
@@ -21,15 +22,27 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
   const track = useTrack();
   const profile = useQuery(api.profiles.getPublic, { userId });
 
+  // Target + modal state. Selection persists across re-renders but resets
+  // if the user navigates away (screen unmounts).
+  const [selectedTarget, setSelectedTarget] = useState<LikeTarget | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
   useEffect(() => {
-    // No target identifier — analytics is a third-party processor. The event
-    // itself (someone opened a detail view) is what we track; correlation to
-    // specific users happens inside Convex if ever needed.
     track(AnalyticsEvents.PROFILE_DETAIL_VIEWED);
-    // Intentionally narrow deps: we want one event per navigation, not one
-    // per render. `track` is stable across renders via usePostHog.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Derive a short description of the selected target for the modal header.
+  // Computed from the profile data rather than carried on the target — keeps
+  // selection state minimal (just type + id).
+  const targetDescription = useMemo(() => {
+    if (!selectedTarget || !profile) return '';
+    if (selectedTarget.type === 'prompt') {
+      const prompt = profile.prompts.find((p) => p._id === selectedTarget.id);
+      return prompt ? prompt.question : 'Their prompt';
+    }
+    return 'Their photo';
+  }, [selectedTarget, profile]);
 
   if (profile === undefined) {
     return <View className="flex-1 bg-cream-50" />;
@@ -71,14 +84,18 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
           answerText: p.answerText,
         }))}
         variant="public"
+        selectableTargets
+        selectedTarget={selectedTarget}
+        onSelectTarget={setSelectedTarget}
         bottomSlot={
-          // Placeholder until Phase 4 TASK-047 wires Like-with-comment. Styling
-          // (peach accent, cream label) previews the real CTA so the slot
-          // reads as intentional rather than disabled/broken.
           <Button
-            label="Like with a comment — coming soon"
-            variant="secondary"
-            disabled
+            label={
+              selectedTarget
+                ? 'Like with a comment'
+                : 'Tap a photo or prompt to start'
+            }
+            disabled={!selectedTarget}
+            onPress={() => setModalVisible(true)}
           />
         }
       />
@@ -97,6 +114,29 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
       >
         <ChevronLeft color="#6D28D9" size={22} />
       </Pressable>
+
+      <LikeWithCommentModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        toUserId={profile.userId}
+        toDisplayName={profile.displayName}
+        target={selectedTarget}
+        targetDescription={targetDescription}
+        onSuccess={({ matchId }) => {
+          setModalVisible(false);
+          setSelectedTarget(null);
+          if (matchId) {
+            // Reciprocal like produced a match — route straight into chat.
+            // Use replace so the back button from chat returns to browse
+            // rather than bouncing back to this profile detail.
+            router.replace(`/chat/${matchId}`);
+          } else {
+            // Pending like — go back to browse. The Likes Inbox will show
+            // the liked-profile's response when it comes.
+            router.back();
+          }
+        }}
+      />
     </View>
   );
 }

@@ -51,6 +51,12 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
   }, [visible]);
 
   const handleClose = () => {
+    // Mirrors the SignInCard guard: while signInWithPassword is awaiting
+    // Clerk, a tap on X or the backdrop would let the request resolve and
+    // still call router.replace('/'), silently signing the user in after
+    // they tried to cancel. No-op when busy so the sheet can only be
+    // dismissed from a settled state.
+    if (busy === 'email') return;
     onClose();
     // Delay reset so the sheet animates out before the fields clear —
     // avoids the flash of empty inputs mid-dismiss.
@@ -88,7 +94,13 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
         setError(SIGN_IN.logInFailed);
       } else {
         // 'incomplete' — Clerk needs more factors (future MFA). Surface
-        // a generic retry message; we don't handle 2FA yet.
+        // a generic retry message; we don't handle 2FA yet. Tracked as
+        // a failure with a distinct reason so the analytics funnel can
+        // separate "bad credentials" from "MFA wall".
+        track(AnalyticsEvents.SIGN_IN_FAILED, {
+          method: 'email_password',
+          reason: 'mfa_required',
+        });
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {
@@ -111,11 +123,13 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
         <View className="flex-row justify-end p-4">
           <Pressable
             onPress={handleClose}
+            disabled={busy === 'email'}
             accessibilityRole="button"
             accessibilityLabel="Close"
+            accessibilityState={{ disabled: busy === 'email' }}
             className="p-2"
           >
-            <X color="#6D28D9" size={24} />
+            <X color={busy === 'email' ? '#A78BFA' : '#6D28D9'} size={24} />
           </Pressable>
         </View>
         <View className="flex-1 px-5">

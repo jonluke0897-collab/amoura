@@ -39,16 +39,27 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
     setError(null);
   };
 
-  // Cancel any pending reset when the sheet reopens, and on unmount.
+  // Cancel any pending reset when the sheet reopens — otherwise a
+  // close→open within 200ms would let the stale timer wipe the user's
+  // new input. Kept separate from the unmount cleanup below because a
+  // combined effect with [visible] deps would ALSO fire its cleanup on
+  // close (visible true→false), cancelling the timer `handleClose` just
+  // scheduled and preventing the delayed reset from ever running.
   useEffect(() => {
     if (visible && resetTimerRef.current) {
       clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
     }
-    return () => {
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    };
   }, [visible]);
+
+  // Unmount-only cleanup: empty deps so this cleanup runs exactly once,
+  // when the PasswordLoginSheet actually unmounts.
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    },
+    [],
+  );
 
   const handleClose = () => {
     // Mirrors the SignInCard guard: while signInWithPassword is awaiting

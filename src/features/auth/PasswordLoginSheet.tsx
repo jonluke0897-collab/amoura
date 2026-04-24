@@ -79,6 +79,10 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
   };
 
   const handleSubmit = async () => {
+    // Re-entry guard: a rapid double-tap can fire handleSubmit twice
+    // before `busy` propagates and disables the button, causing a
+    // duplicate Clerk call and a duplicate SIGN_IN_ATTEMPTED event.
+    if (busy !== null) return;
     setError(null);
     const trimmed = email.trim();
     if (!EMAIL_PATTERN.test(trimmed)) {
@@ -115,8 +119,14 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {
-      track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email_password' });
-      setError(e instanceof Error ? e.message : 'Log in failed.');
+      // User sees stable copy; raw exception text goes to telemetry only.
+      // Avoids leaking Clerk internals ("token_expired", network URLs, etc.)
+      // into UI that might be screenshotted or logged by the OS.
+      track(AnalyticsEvents.SIGN_IN_FAILED, {
+        method: 'email_password',
+        error: e instanceof Error ? e.message : String(e),
+      });
+      setError(SIGN_IN.authUnexpected);
     }
   };
 

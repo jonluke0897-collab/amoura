@@ -38,6 +38,7 @@ export function SignInCard() {
   const [error, setError] = useState<string | null>(null);
 
   const handleOAuth = async (method: 'apple' | 'google') => {
+    if (busy !== null) return;
     setError(null);
     track(AnalyticsEvents.SIGN_IN_ATTEMPTED, { method });
     try {
@@ -49,8 +50,12 @@ export function SignInCard() {
         track(AnalyticsEvents.SIGN_IN_CANCELLED, { method });
       }
     } catch (e) {
-      track(AnalyticsEvents.SIGN_IN_FAILED, { method });
-      setError(e instanceof Error ? e.message : 'Sign-in failed. Try again?');
+      // Stable user copy, raw details stay in telemetry.
+      track(AnalyticsEvents.SIGN_IN_FAILED, {
+        method,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      setError(SIGN_IN.authUnexpected);
     }
   };
 
@@ -63,6 +68,7 @@ export function SignInCard() {
   };
 
   const handleSendCode = async () => {
+    if (busy !== null) return;
     setError(null);
     const trimmed = email.trim();
     if (!EMAIL_PATTERN.test(trimmed)) {
@@ -75,12 +81,16 @@ export function SignInCard() {
       setSentTo(trimmed);
       setStep('code');
     } catch (e) {
-      track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email' });
-      setError(e instanceof Error ? e.message : 'Could not send the code. Try again?');
+      track(AnalyticsEvents.SIGN_IN_FAILED, {
+        method: 'email',
+        error: e instanceof Error ? e.message : String(e),
+      });
+      setError(SIGN_IN.codeSendFailed);
     }
   };
 
   const handleVerifyCode = async () => {
+    if (busy !== null) return;
     setError(null);
     if (code.trim().length < CODE_LENGTH) {
       setError(SIGN_IN.emailCodeInvalid);
@@ -96,17 +106,21 @@ export function SignInCard() {
       } else if (result.status === 'invalid_code') {
         // The hook detected Clerk's `form_code_incorrect`; surface the
         // typed message without message-string sniffing.
-        track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email' });
+        track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email', reason: 'invalid_code' });
         setError(SIGN_IN.emailCodeInvalid);
       } else {
         // 'incomplete' — Clerk returned a non-complete status (e.g. second
         // factor needed). We don't support 2FA yet; surface a generic
         // ask-to-retry.
+        track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email', reason: 'mfa_required' });
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {
-      track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email' });
-      setError(e instanceof Error ? e.message : 'Could not verify the code. Try again?');
+      track(AnalyticsEvents.SIGN_IN_FAILED, {
+        method: 'email',
+        error: e instanceof Error ? e.message : String(e),
+      });
+      setError(SIGN_IN.codeVerifyFailed);
     }
   };
 

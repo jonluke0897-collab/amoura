@@ -44,13 +44,18 @@ export async function createMatch(
     args.recipientUserId,
   );
 
-  const existing = await ctx.db
+  // Dedupe only on ACTIVE rows. An unmatched row is preserved for audit
+  // but hidden from both users' listMine/get, so returning it here would
+  // route the new match into a permanently-unavailable chat. Historical
+  // unmatched rows stay untouched; a fresh row starts a fresh thread.
+  const prior = await ctx.db
     .query('matches')
     .withIndex('by_users', (q) =>
       q.eq('userAId', userAId).eq('userBId', userBId),
     )
-    .unique();
-  if (existing) return existing._id;
+    .collect();
+  const active = prior.find((m) => m.status !== 'unmatched');
+  if (active) return active._id;
 
   const now = Date.now();
   const matchId = await ctx.db.insert('matches', {
@@ -161,9 +166,13 @@ export const listMine = query({
     // any string, so this is safe as long as we only call it from our own
     // client. If the caller ever needs a stable cursor across mutations,
     // we'll need to move to an offset-indexed paging table — deferred.
-    const startIdx = args.paginationOpts.cursor
-      ? parseInt(args.paginationOpts.cursor, 10)
+    // Cursor is our own stringified offset, but a malformed client could
+    // send `'NaN'` or `'-5'`; clamp to 0 so slice() always yields a valid
+    // page and continueCursor stays parseable on the next round-trip.
+    const parsed = args.paginationOpts.cursor
+      ? Number.parseInt(args.paginationOpts.cursor, 10)
       : 0;
+    const startIdx = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     const endIdx = startIdx + args.paginationOpts.numItems;
     const pageSlice = visible.slice(startIdx, endIdx);
     const isDone = endIdx >= visible.length;
@@ -246,7 +255,9 @@ export const get = query({
         .withIndex('by_user', (q) => q.eq('userId', counterpartyId))
         .unique(),
     ]);
-    if (!counterparty) return null;
+    // Mirror listMine's active-account guard — a deactivated/suspended
+    // counterparty's chat must not reopen via a stale route or push.
+    if (!counterparty || counterparty.accountStatus !== 'active') return null;
     const photoUrl = counterpartyProfile
       ? await firstPhotoUrlForProfile(ctx, counterpartyProfile._id)
       : null;

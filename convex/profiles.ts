@@ -482,9 +482,33 @@ export const listFeed = query({
     const [ageMin, ageMax] =
       rawAgeMin <= rawAgeMax ? [rawAgeMin, rawAgeMax] : [rawAgeMax, rawAgeMin];
 
-    // Blocks both directions. Set keys are userId strings; Id<'users'> is a
-    // branded string so the Set lookup works on raw ids.
-    const blockedIds = await getBlockedUserIds(ctx, viewer._id);
+    // Blocks both directions, plus active matches. Both produce the same
+    // "filter out this counterparty" effect; merge into one set so the
+    // per-row check stays a single Set.has lookup.
+    //
+    // Active matches: an existing chat would let the viewer like-with-
+    // comment a person they already match — confusing and would queue an
+    // orphan like. Once unmatched the row drops out (status='unmatched'),
+    // so re-discovery is allowed per TASK-057's "neither user can re-
+    // match without a new like" — they can like again, just not get a
+    // free new chat.
+    const skipIds = await getBlockedUserIds(ctx, viewer._id);
+    const [activeAsA, activeAsB] = await Promise.all([
+      ctx.db
+        .query('matches')
+        .withIndex('by_user_a', (q) => q.eq('userAId', viewer._id))
+        .collect(),
+      ctx.db
+        .query('matches')
+        .withIndex('by_user_b', (q) => q.eq('userBId', viewer._id))
+        .collect(),
+    ]);
+    for (const m of activeAsA) {
+      if (m.status === 'active') skipIds.add(m.userBId);
+    }
+    for (const m of activeAsB) {
+      if (m.status === 'active') skipIds.add(m.userAId);
+    }
 
     // `by_visible_city` is `[isVisible, city]` plus the implicit _creationTime
     // suffix, so .order('desc') gives newest-first pagination without an
@@ -502,7 +526,7 @@ export const listFeed = query({
     const now = Date.now();
     const page: FeedItem[] = [];
     for (const target of paged.page) {
-      if (blockedIds.has(target.userId)) continue;
+      if (skipIds.has(target.userId)) continue;
       // Viewer-side filter: viewer with t4t-only preference hides cis
       // candidates.
       if (t4tOnly && target.genderModality === 'cis') continue;

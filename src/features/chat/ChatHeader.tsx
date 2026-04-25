@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Modal, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMutation } from 'convex/react';
 import { ChevronLeft, MoreVertical } from 'lucide-react-native';
@@ -110,21 +110,28 @@ export function ChatHeader({
           <MoreVertical color="#6D28D9" size={20} />
         </Pressable>
       </View>
-      {menuOpen && (
-        // Inline dropdown rather than a modal. A full sheet would add
-        // friction for a two-item menu; this closes on outside tap via
-        // the backdrop pressable below.
-        <>
-          <Pressable
-            className="absolute inset-0"
-            style={{ top: 56, height: 1000 }}
-            onPress={() => setMenuOpen(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Close menu"
-          />
+      {/* Menu rendered via Modal so taps work outside the header's bounds.
+          Inline-absolute positioning was hit-clipped by Android's parent
+          bounds when the menu sat below the header. The Modal opens a new
+          window so hit-testing is independent of the header's flex box. */}
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable
+          className="flex-1"
+          onPress={() => setMenuOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+        >
+          {/* The dropdown sits roughly under the ⋮ icon (top-right of the
+              header). Top offset = status bar + header (~96 on most
+              Androids); cheap visual approximation. */}
           <View
-            className="absolute right-3 top-14 bg-cream-50 rounded-md shadow-modal border border-plum-50 overflow-hidden"
-            style={{ minWidth: 160 }}
+            className="absolute right-3 bg-cream-50 rounded-md shadow-modal border border-plum-50 overflow-hidden"
+            style={{ top: 96, minWidth: 160 }}
           >
             <Pressable
               onPress={() => {
@@ -151,8 +158,8 @@ export function ChatHeader({
               </Text>
             </Pressable>
           </View>
-        </>
-      )}
+        </Pressable>
+      </Modal>
     </View>
   );
 }

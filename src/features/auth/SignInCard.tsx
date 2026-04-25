@@ -109,14 +109,14 @@ export function SignInCard() {
         track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email', reason: 'invalid_code' });
         setError(SIGN_IN.emailCodeInvalid);
       } else {
-        // 'incomplete' — Clerk returned a non-complete status (e.g. second
-        // factor needed). We don't support 2FA yet; surface a generic
-        // ask-to-retry. `clerk_status` carries the actual continuation
-        // state (`needs_new_password`, `needs_second_factor`, …) so the
-        // funnel can tell them apart.
+        // 'incomplete' — Clerk returned a continuation state we don't
+        // handle yet (`needs_new_password`, `needs_second_factor`, …).
+        // `reason` is neutral; `clerk_status` carries the specific kind
+        // so the funnel can tell forced-reset from MFA from instance
+        // config without us having to mint a label per state up front.
         track(AnalyticsEvents.SIGN_IN_FAILED, {
           method: 'email',
-          reason: 'mfa_required',
+          reason: 'additional_verification_required',
           clerk_status: result.clerkStatus,
         });
         setError('Additional verification is required. Please contact support.');

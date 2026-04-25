@@ -52,8 +52,11 @@ export function IDVerification() {
   // prior attempt, we celebrate that instead of waiting.
   const isApproved = status?.id === 'approved';
 
-  const dismissable =
-    !status?.idVerifyRequiredAt;
+  // While status is still loading (undefined), assume the worst case
+  // — required mode — so a user in the locked-out state never briefly
+  // sees a Cancel button during the load window. Once status resolves
+  // we trust idVerifyRequiredAt.
+  const dismissable = status !== undefined && !status.idVerifyRequiredAt;
 
   async function handleStart(): Promise<void> {
     setWorking('starting');

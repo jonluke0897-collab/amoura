@@ -128,10 +128,17 @@ export const recordIdDismiss = mutation({
 /**
  * Internal mutation called by the Persona webhook (HTTP route in
  * convex/http.ts) when an inquiry transitions to a terminal state.
- * Inserts a new verifications row keyed on (userId, type='id') with
- * the status the webhook reports. We do NOT update an existing row —
- * each Persona inquiry is a separate attempt for audit purposes; the
- * `status` query always returns the most recent.
+ * Inserts a new verifications row keyed on (userId, type='id',
+ * providerInquiryId). Each Persona inquiry is a separate attempt for
+ * audit purposes; the `status` query always returns the most recent.
+ *
+ * **Idempotent on (userId, type='id', providerInquiryId)** — Persona
+ * retries webhooks on transient failures (5xx responses, network
+ * timeouts), and we acknowledge resolved inquiries with 200 even when
+ * the action runs in a follow-up retry. Without the guard, a single
+ * inquiry that retried twice would land three duplicate rows in the
+ * verifications table and pollute the status query's "latest"
+ * resolution.
  */
 export const applyPersonaResult = internalMutation({
   args: {
@@ -143,6 +150,19 @@ export const applyPersonaResult = internalMutation({
   handler: async (ctx, args) => {
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error('User not found');
+
+    const existing = await ctx.db
+      .query('verifications')
+      .withIndex('by_user_type', (q) =>
+        q.eq('userId', args.userId).eq('type', 'id'),
+      )
+      .filter((q) => q.eq(q.field('providerInquiryId'), args.inquiryId))
+      .first();
+    if (existing) {
+      // Webhook retry on the same inquiry — already recorded, nothing to do.
+      return;
+    }
+
     const now = Date.now();
     await ctx.db.insert('verifications', {
       userId: args.userId,

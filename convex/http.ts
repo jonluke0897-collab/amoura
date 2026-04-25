@@ -5,6 +5,38 @@ import { internal } from './_generated/api';
 
 const http = httpRouter();
 
+/**
+ * Constant-time string comparison for HMAC signatures. WebCrypto's
+ * subtle.timingSafeEqual would be ideal but isn't available in Convex's
+ * V8 isolate; this is the next-best at length-checked OR-accumulation.
+ * Strings of different lengths return false immediately, which is fine —
+ * an attacker can't gain timing-leak info by forcing a length mismatch
+ * since the lengths themselves aren't secret.
+ */
+function timingSafeStringEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 type ClerkEvent = {
   type: 'user.created' | 'user.updated' | 'user.deleted';
   data: {
@@ -64,6 +96,171 @@ http.route({
         });
         break;
     }
+
+    return new Response(null, { status: 200 });
+  }),
+});
+
+/**
+ * Persona webhook — Phase 5 TASK-060.
+ *
+ * Persona signs the payload with HMAC-SHA256 over the request body using
+ * the webhook secret from the Persona dashboard. The signature comes in
+ * as `Persona-Signature: t=<unix>,v1=<hex>` (per Persona's docs); we
+ * extract v1 and timing-safe-compare against our own HMAC. Mismatch →
+ * 401, missing secret → 500, well-formed but in a non-terminal state →
+ * 200 no-op.
+ *
+ * Persona event shape: `{ data: { attributes: { payload: { data: { id,
+ * attributes: { 'reference-id', status } } } } } }` — yes, that nesting
+ * is real, Persona's API is JSONAPI under their own envelope. We extract
+ * cautiously and bail without writing if the shape is unexpected.
+ */
+type PersonaInquiryEvent = {
+  data?: {
+    attributes?: {
+      name?: string; // 'inquiry.completed' | 'inquiry.expired' | 'inquiry.failed' | etc.
+      payload?: {
+        data?: {
+          id?: string;
+          attributes?: {
+            'reference-id'?: string;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+};
+
+http.route({
+  path: '/persona-webhook',
+  method: 'POST',
+  handler: httpAction(async (ctx, req) => {
+    const secret = process.env.PERSONA_WEBHOOK_SECRET;
+    if (!secret) {
+      return new Response('Missing PERSONA_WEBHOOK_SECRET', { status: 500 });
+    }
+
+    const signatureHeader = req.headers.get('Persona-Signature');
+    if (!signatureHeader) {
+      return new Response('Missing Persona-Signature header', { status: 400 });
+    }
+
+    // Persona supports multiple signature sets in one header,
+    // whitespace-separated, so secret rotation can sign with both the
+    // old and new secrets during the window:
+    //
+    //   Persona-Signature: t=1684868400,v1=abcdef... t=1684868400,v1=fedcba...
+    //
+    // Each set is comma-separated kv pairs; we accept the request if
+    // any one set verifies. Within a set, both t and v1 are required.
+    const sets = signatureHeader
+      .split(/\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (sets.length === 0) {
+      return new Response('Persona-Signature is empty', { status: 400 });
+    }
+
+    const body = await req.text();
+    const nowSec = Math.floor(Date.now() / 1000);
+    let verified = false;
+    let lastError = 'Invalid signature';
+    for (const set of sets) {
+      let v1: string | undefined;
+      let t: string | undefined;
+      for (const part of set.split(',').map((p) => p.trim())) {
+        const [k, value] = part.split('=', 2);
+        if (k === 'v1') v1 = value;
+        else if (k === 't') t = value;
+      }
+      if (!v1 || !t) {
+        lastError = 'Persona-Signature missing required components';
+        continue;
+      }
+      const tNumber = Number(t);
+      if (!Number.isFinite(tNumber)) {
+        lastError = 'Persona-Signature t is not numeric';
+        continue;
+      }
+      // ±300s replay window. Persona stamps `t` on send; a request
+      // older than five minutes is either a delayed retry (already
+      // processed — applyPersonaResult is idempotent on inquiryId) or
+      // a captured-and-replayed signature. Either way we don't want
+      // to act on it.
+      if (Math.abs(nowSec - tNumber) > 300) {
+        lastError = 'Persona-Signature outside replay window';
+        continue;
+      }
+      // Sign over `${t}.${body}` — Stripe/GitHub/Slack convention
+      // Persona follows. Including the timestamp in the signed payload
+      // is what makes the replay window meaningful: an attacker with a
+      // captured (header, body) pair can't shift `t` to bypass the
+      // window without invalidating the signature.
+      const expected = await hmacSha256Hex(secret, `${t}.${body}`);
+      if (timingSafeStringEqual(v1, expected)) {
+        verified = true;
+        break;
+      }
+      lastError = 'Invalid signature';
+    }
+    if (!verified) {
+      return new Response(lastError, {
+        status: lastError === 'Invalid signature' ? 401 : 400,
+      });
+    }
+
+    let event: PersonaInquiryEvent;
+    try {
+      event = JSON.parse(body) as PersonaInquiryEvent;
+    } catch {
+      return new Response('Invalid JSON body', { status: 400 });
+    }
+
+    const eventName = event.data?.attributes?.name ?? '';
+    const payload = event.data?.attributes?.payload?.data;
+    const inquiryId = payload?.id;
+    const referenceId = payload?.attributes?.['reference-id'];
+    const personaStatus = payload?.attributes?.status;
+
+    if (!inquiryId || !referenceId || !personaStatus) {
+      // Webhook fired for an event we don't care about (e.g., session
+      // started). Acknowledge so Persona doesn't retry, but don't write.
+      return new Response(null, { status: 200 });
+    }
+
+    // Persona statuses: 'completed' / 'approved' / 'declined' / 'failed' /
+    // 'expired' / 'needs_review'. We collapse to approved | rejected for
+    // the verifications row.
+    //
+    // `needs_review` is intentionally NOT terminal — Persona resolves it
+    // to a final status when their team or rules engine acts. Closing it
+    // here would write a 'rejected' row that flips back to 'approved' on
+    // the follow-up webhook, leaving stale data in the verifications
+    // table. We acknowledge with 200 (so Persona doesn't retry) and wait
+    // for the resolution event.
+    const isApproved =
+      eventName === 'inquiry.approved' || personaStatus === 'approved';
+    const isTerminalRejection =
+      eventName === 'inquiry.declined' ||
+      eventName === 'inquiry.failed' ||
+      eventName === 'inquiry.expired' ||
+      personaStatus === 'declined' ||
+      personaStatus === 'failed' ||
+      personaStatus === 'expired';
+
+    if (!isApproved && !isTerminalRejection) {
+      // Non-terminal state — Persona will fire another webhook later.
+      return new Response(null, { status: 200 });
+    }
+
+    await ctx.runAction(internal.verificationActions.recordPersonaResult, {
+      referenceId,
+      inquiryId,
+      status: isApproved ? 'approved' : 'rejected',
+      rejectedReason: isApproved ? undefined : personaStatus,
+    });
 
     return new Response(null, { status: 200 });
   }),

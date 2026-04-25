@@ -118,6 +118,69 @@ open the **Functions** panel, find `badActorScan.run`, and invoke with
 no args. The function returns `{ scanned, flagged, suspended }` so you
 can verify the scan saw the expected report volume.
 
+## Verification setup (Phase 5 Wave 3)
+
+Photo and ID verification ship in Wave 3 (TASK-060, TASK-061). The
+client code lives in `src/features/verification/` and the Convex
+backend in `convex/verifications.ts` + `convex/verificationActions.ts`.
+Both flows are inert until the operator sets the env vars below; users
+who tap "Verify your photo" or "Verify your ID" before setup will see
+a friendly "verification is taking a beat" rejection.
+
+### Persona (ID verification)
+
+1. Create a Persona account at https://withpersona.com.
+2. Build a "Government ID + Selfie" inquiry template. Note the
+   template id (`itmpl_…`).
+3. From the Persona dashboard's API Keys section, generate a server-
+   side API key (sandbox first; flip to production at launch).
+4. From the Persona Webhooks page, add a webhook pointed at
+   `https://<deployment>.convex.site/persona-webhook`. Copy the
+   webhook secret.
+5. Set Convex env vars:
+   ```bash
+   npx convex env set PERSONA_API_KEY <api-key>
+   npx convex env set PERSONA_TEMPLATE_ID itmpl_...
+   npx convex env set PERSONA_WEBHOOK_SECRET <webhook-secret>
+   npx convex env set PERSONA_ENV sandbox
+   npx convex env set PERSONA_REDIRECT_URL amoura://verify-id-return
+   ```
+6. Test sandbox flow on a dev build; flip `PERSONA_ENV` to
+   `production` and rotate `PERSONA_API_KEY` for launch.
+
+### AWS Rekognition (photo verification)
+
+See `docs/aws-rekognition-lambda.md` for the Lambda contract and
+reference implementation. Once the Lambda is deployed:
+
+```bash
+npx convex env set REKOGNITION_LAMBDA_URL https://<lambda-function-url>
+npx convex env set REKOGNITION_LAMBDA_TOKEN <random-secret>
+```
+
+### Auto-routing the post-onboarding gate
+
+Wave 3 ships `src/features/verification/useVerificationGate.ts` —
+a hook that auto-routes signed-in users to the ID verify screen.
+**It is not wired by default** because routing without configured
+Persona env vars dumps users into an error state and locks them
+out after 2 dismissals.
+
+After Persona is configured and tested, enable the gate by adding
+one line to `app/_layout.tsx`:
+
+```tsx
+import { useVerificationGate } from '~/src/features/verification/useVerificationGate';
+
+function RootLayout() {
+  useVerificationGate();
+  // ...rest of the layout
+}
+```
+
+Until then, the Settings → Verify your ID row is the only entry
+point and users opt in deliberately.
+
 ## Updating the moderation keyword list
 
 `convex/moderationKeywords.ts` ships in the public repo with placeholder

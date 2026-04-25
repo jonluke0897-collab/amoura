@@ -1,6 +1,6 @@
 # Phase 5 Copy Review
 
-> ### 🚨 Hard merge gate
+> ## 🚨 Hard merge gate
 >
 > **The Wave 2 PR (and Wave 3) MUST NOT merge to main until at least
 > one paid trans advisor returns written sign-off on the strings

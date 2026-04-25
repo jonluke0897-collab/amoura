@@ -139,12 +139,19 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
         animationType="fade"
         onRequestClose={() => setMenuOpen(false)}
       >
-        <Pressable
-          className="flex-1"
-          onPress={() => setMenuOpen(false)}
-          accessibilityRole="button"
-          accessibilityLabel="Close menu"
-        >
+        {/* Sibling-backdrop pattern: a full-screen Pressable handles
+            dismiss-on-tap, the menu container is its sibling above it.
+            Earlier nesting (Pressable wrapping the menu View) risked taps
+            on menu items propagating up and triggering setMenuOpen(false)
+            in addition to the item's onPress, which on RN 0.81+ leaves the
+            sheet flickering. Mirrors the BottomSheet primitive's pattern. */}
+        <View className="flex-1">
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setMenuOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+          />
           <View
             // Anchor the menu beneath the three-dot pill (top-right, ~10px
             // below the pill's bottom edge). Mirrors the ChatHeader menu's
@@ -165,7 +172,7 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
               onBlockSuccess={() => router.back()}
             />
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
       <ReportSheet

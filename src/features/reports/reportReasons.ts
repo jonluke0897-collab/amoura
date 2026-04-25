@@ -36,7 +36,11 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
 };
 
 export function reportReasonLabel(reason: string): string {
-  return reason in REPORT_REASON_LABELS
+  // hasOwnProperty.call to avoid matching inherited prototype keys
+  // ('toString', 'constructor', etc.) — without this, a malformed reason
+  // like `"toString"` would resolve to `Object.prototype.toString` and
+  // render `function () { [native code] }` in the UI.
+  return Object.prototype.hasOwnProperty.call(REPORT_REASON_LABELS, reason)
     ? REPORT_REASON_LABELS[reason as ReportReason]
     : reason;
 }

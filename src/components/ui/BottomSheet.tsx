@@ -7,6 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type BottomSheetProps = {
   visible: boolean;
@@ -57,6 +58,7 @@ export function BottomSheet({
   heightPercent = 80,
 }: BottomSheetProps) {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   // Defensive clamp — `heightPercent` is caller-supplied, so guard against
   // NaN / 0 / negative / >100 that would produce an invisible or overflowing
   // sheet. 20% floor keeps the sheet usable even if someone accidentally
@@ -113,7 +115,15 @@ export function BottomSheet({
         />
         <Animated.View
           style={[
-            { height: (windowHeight * clampedHeightPercent) / 100 },
+            {
+              height: (windowHeight * clampedHeightPercent) / 100,
+              // Reserve the OS bottom inset so the sheet's content (especially
+              // a sticky footer button) doesn't draw under Android's gesture /
+              // 3-button nav bar in edge-to-edge mode or iOS's home indicator.
+              // Consumers should add their own visual padding on top of this;
+              // the primitive only handles the system-chrome clearance.
+              paddingBottom: insets.bottom,
+            },
             sheetStyle,
           ]}
           className="bg-cream-50 rounded-t-lg shadow-modal"

@@ -6,7 +6,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { X } from 'lucide-react-native';
 import { useMutation } from 'convex/react';
@@ -55,7 +54,6 @@ export function LikeWithCommentModal({
   targetDescription,
   onSuccess,
 }: LikeWithCommentModalProps) {
-  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,10 +193,7 @@ export function LikeWithCommentModal({
             )}
           </View>
         </View>
-        <View
-          className="px-5 pt-3"
-          style={{ paddingBottom: insets.bottom + 12 }}
-        >
+        <View className="px-5 pt-3 pb-3">
           <Button
             label="Send like"
             onPress={handleSubmit}

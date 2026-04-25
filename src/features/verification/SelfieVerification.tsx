@@ -158,9 +158,11 @@ export function SelfieVerification() {
   const startPhoto = useAction(api.verificationActions.startPhoto);
 
   useEffect(() => {
+    // Include `track` in deps so the event re-fires when the memoized
+    // callback stabilizes (PostHog cold-start race). useCallback's
+    // stable identity prevents endless retriggers.
     track(AnalyticsEvents.VERIFICATION_PROMPT_SHOWN, { type: 'photo' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [track]);
 
   // Auto-request permission on mount. expo-camera renders a black
   // placeholder until granted; without the prompt the user sits looking

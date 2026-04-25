@@ -48,27 +48,35 @@ export function IDVerification() {
   // so the second invocation sees the guard immediately.
   const startInFlightRef = useRef(false);
   const dismissInFlightRef = useRef(false);
-  // Snapshot of status.id at the moment we entered awaitingWebhook so
-  // the watcher useEffect can detect the change (status was 'rejected'
-  // → flipped to 'approved' on retry, or null → 'rejected' on first
-  // attempt). Plain reference comparison on the latest status would
-  // fire immediately if the user already had a prior verification row.
-  const statusBeforeAttemptRef = useRef<string | null>(null);
+  // Snapshot of status.idLatestAt (createdAt of the newest id
+  // verifications row) at the moment we entered awaitingWebhook. The
+  // watcher detects "a new resolution row landed" by comparing this
+  // marker — using status.id alone would fail for back-to-back
+  // rejections (both attempts read as 'rejected', no observable
+  // change), leaving the user stuck waiting forever.
+  const statusBeforeAttemptRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // `track` is a memoized callback that becomes a no-op when PostHog
+    // hasn't initialized yet. Including it in deps means the prompt-
+    // shown event re-fires when posthog stabilizes — covers the cold-
+    // start race where the screen mounts before the analytics provider
+    // is ready. useCallback's stable identity prevents endless retriggers.
     track(AnalyticsEvents.VERIFICATION_PROMPT_SHOWN, { type: 'id' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [track]);
 
-  // Watcher: while awaitingWebhook, flip back to idle once status.id
-  // has changed from the snapshot taken at handleStart's success path.
-  // The screen's existing isApproved branch then renders the success
-  // panel; rejected lands the user back on the prompt for a retry.
+  // Watcher: while awaitingWebhook, flip back to idle once a new
+  // verifications row has landed (idLatestAt advanced). The screen's
+  // existing isApproved branch then renders the success panel;
+  // rejected lands the user back on the prompt for a retry. Comparing
+  // by createdAt rather than status enum is what makes this work for
+  // consecutive rejections (both reads are 'rejected', but the
+  // timestamp moves forward on each new row).
   useEffect(() => {
     if (working !== 'awaitingWebhook') return;
     if (!status) return;
     const before = statusBeforeAttemptRef.current;
-    if (status.id !== before) {
+    if (status.idLatestAt !== before) {
       setWorking('idle');
     }
   }, [working, status]);
@@ -115,10 +123,10 @@ export function IDVerification() {
       }
       // 'success' just means the redirect fired. The webhook is what
       // actually updates state. Stay in 'awaitingWebhook' until the
-      // status query reflects the new row — otherwise the user could
+      // status query reflects a new row — otherwise the user could
       // re-tap the CTA between browser-close and webhook-land and
       // spawn a duplicate Persona inquiry.
-      statusBeforeAttemptRef.current = status?.id ?? null;
+      statusBeforeAttemptRef.current = status?.idLatestAt ?? null;
       setWorking('awaitingWebhook');
     } catch (e) {
       console.warn('[IDVerification] startId failed', e);

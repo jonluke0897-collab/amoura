@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useMutation, useQuery } from 'convex/react';
@@ -91,16 +91,14 @@ export default function ProfileTab() {
     setSafetyTipsOpen(true);
   };
 
-  // Wave 3 (verification flows) hasn't shipped yet. Tapping these surfaces
-  // an Alert so users can see verification is on the way without us
-  // wiring dead links. When the SelfieVerification / IDVerification
-  // screens land, swap these for router.push() calls.
-  const handleComingSoon = (label: string) => {
+  const goToVerifyPhoto = () => {
     setSheetOpen(false);
-    Alert.alert(
-      `${label} is almost here.`,
-      'We’re adding photo and ID verification in the next update.',
-    );
+    router.push('/verify-photo');
+  };
+
+  const goToVerifyId = () => {
+    setSheetOpen(false);
+    router.push('/verify-id');
   };
 
   return (
@@ -177,16 +175,8 @@ export default function ProfileTab() {
               <SheetRow label="Change city" onPress={handleChangeCity} />
 
               <SectionHeader label="Safety & Privacy" />
-              <SheetRow
-                label="Verify your photo"
-                hint="Coming soon"
-                onPress={() => handleComingSoon('Photo verification')}
-              />
-              <SheetRow
-                label="Verify your ID"
-                hint="Coming soon"
-                onPress={() => handleComingSoon('ID verification')}
-              />
+              <SheetRow label="Verify your photo" onPress={goToVerifyPhoto} />
+              <SheetRow label="Verify your ID" onPress={goToVerifyId} />
               <SheetRow label="Blocked users" onPress={goToBlockedUsers} />
               <SheetRow label="My reports" onPress={goToMyReports} />
               <SheetRow label="Safety tips" onPress={handleSafetyTips} />

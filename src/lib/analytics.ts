@@ -42,6 +42,13 @@ export const AnalyticsEvents = {
   BLOCK_USER: 'block_user',
   UNBLOCK_USER: 'unblock_user',
   FILTER_VERIFIED_TOGGLED: 'filter_verified_toggled',
+  // Phase 5 Wave 3 — verification.
+  // Tracks the full funnel: prompt → started → approved | rejected | dismissed.
+  VERIFICATION_PROMPT_SHOWN: 'verification_prompt_shown',
+  VERIFICATION_STARTED: 'verification_started',
+  VERIFICATION_APPROVED: 'verification_approved',
+  VERIFICATION_REJECTED: 'verification_rejected',
+  VERIFICATION_DISMISSED: 'verification_dismissed',
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

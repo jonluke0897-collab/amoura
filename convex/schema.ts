@@ -29,6 +29,14 @@ export default defineSchema({
     // dashboard write. Phase 6 will expose moderator management in the
     // Next.js admin UI.
     role: v.optional(v.union(v.literal('user'), v.literal('moderator'))),
+    // Phase 5 Wave 3 (TASK-060) — ID verification UX state.
+    // The Persona prompt is dismissible the first two times it appears;
+    // on the third sign-in the modal blocks dismissal until completion.
+    // Absence = 0 (not yet shown). idVerifyRequiredAt is set when the
+    // dismiss count crosses the threshold so the gate becomes sticky
+    // across sessions even if the user clears app state.
+    idVerifyDismissCount: v.optional(v.number()),
+    idVerifyRequiredAt: v.optional(v.number()),
     lastActiveAt: v.number(),
     createdAt: v.number(),
   })

@@ -42,6 +42,20 @@ const config: ExpoConfig = {
       },
     ],
     [
+      'expo-camera',
+      {
+        // Phase 5 Wave 3: photo verification (TASK-061). Live selfie capture
+        // matched against the user's most recent profile photo via AWS
+        // Rekognition. Permission copy intentionally specific so it doesn't
+        // duplicate the expo-image-picker camera prompt — different intents,
+        // different sentences.
+        cameraPermission:
+          'Amoura uses the camera to take a quick selfie for verification — to confirm you’re you. The photo is checked against your profile photo and not shown to anyone else.',
+        microphonePermission: false,
+        recordAudioAndroid: false,
+      },
+    ],
+    [
       'expo-location',
       {
         // Foreground-only — matches requestForegroundPermissionsAsync in

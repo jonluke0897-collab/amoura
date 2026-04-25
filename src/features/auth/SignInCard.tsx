@@ -111,8 +111,14 @@ export function SignInCard() {
       } else {
         // 'incomplete' — Clerk returned a non-complete status (e.g. second
         // factor needed). We don't support 2FA yet; surface a generic
-        // ask-to-retry.
-        track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email', reason: 'mfa_required' });
+        // ask-to-retry. `clerk_status` carries the actual continuation
+        // state (`needs_new_password`, `needs_second_factor`, …) so the
+        // funnel can tell them apart.
+        track(AnalyticsEvents.SIGN_IN_FAILED, {
+          method: 'email',
+          reason: 'mfa_required',
+          clerk_status: result.clerkStatus,
+        });
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {

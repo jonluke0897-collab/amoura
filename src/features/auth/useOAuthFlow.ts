@@ -84,6 +84,16 @@ function devWarnAuthError(scope: string, e: unknown) {
   }
 }
 
+// Dev-only warning for non-complete `attempt.status` returns. We don't
+// support continuation states like `needs_new_password` / MFA yet, so the
+// caller surfaces a generic "additional verification required" message —
+// this prints which state we actually hit so it's visible without parsing
+// the PostHog funnel.
+function devWarnIncomplete(scope: string, clerkStatus: string) {
+  if (!__DEV__) return;
+  console.warn(`[Amoura] ${scope} — non-complete Clerk status`, { clerkStatus });
+}
+
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
   const googleFlow = useOAuth({ strategy: 'oauth_google' });
@@ -171,7 +181,11 @@ export function useOAuthFlow() {
   const verifyEmailCode = useCallback(
     async (
       code: string,
-    ): Promise<{ status: 'complete' | 'incomplete' | 'invalid_code' }> => {
+    ): Promise<
+      | { status: 'complete' }
+      | { status: 'invalid_code' }
+      | { status: 'incomplete'; clerkStatus: string }
+    > => {
       const trimmed = code.trim();
       if (!trimmed) throw new Error('Enter the code from your email');
       if (!signIn || !signUp || !setActive) {
@@ -194,7 +208,15 @@ export function useOAuthFlow() {
               modeRef.current = null;
               return { status: 'complete' };
             }
-            return { status: 'incomplete' };
+            // Forward the actual Clerk status (`needs_first_factor`,
+            // `needs_new_password`, …) so the caller can record which
+            // continuation state we hit. Without this, every non-complete
+            // outcome looks the same in PostHog. Clerk types `status` as
+            // `SignInStatus | null` (null = pre-create); coerce so the
+            // analytics payload always has a string.
+            const status = attempt.status ?? 'unknown';
+            devWarnIncomplete('verifyEmailCode/signIn', status);
+            return { status: 'incomplete', clerkStatus: status };
           }
 
           // signUp branch
@@ -206,7 +228,9 @@ export function useOAuthFlow() {
             modeRef.current = null;
             return { status: 'complete' };
           }
-          return { status: 'incomplete' };
+          const status = attempt.status ?? 'unknown';
+          devWarnIncomplete('verifyEmailCode/signUp', status);
+          return { status: 'incomplete', clerkStatus: status };
         } catch (e) {
           if (isIncorrectCodeError(e)) {
             return { status: 'invalid_code' };
@@ -229,7 +253,11 @@ export function useOAuthFlow() {
     async (
       email: string,
       password: string,
-    ): Promise<{ status: 'complete' | 'incomplete' | 'invalid_credentials' }> => {
+    ): Promise<
+      | { status: 'complete' }
+      | { status: 'invalid_credentials' }
+      | { status: 'incomplete'; clerkStatus: string }
+    > => {
       const identifier = email.trim();
       if (!identifier) throw new Error('Enter a valid email address');
       if (!password) throw new Error('Enter your password');
@@ -255,7 +283,15 @@ export function useOAuthFlow() {
             await setActive({ session: attempt.createdSessionId });
             return { status: 'complete' };
           }
-          return { status: 'incomplete' };
+          // Clerk has multiple non-complete statuses (`needs_first_factor`
+          // when password is disabled on the instance, `needs_new_password`
+          // for forced resets, `needs_second_factor` for MFA, …). Forward
+          // the actual status so PostHog/telemetry shows which one fired
+          // instead of a generic 'incomplete'. Clerk types `status` as
+          // `SignInStatus | null`; coerce so the payload always has a string.
+          const status = attempt.status ?? 'unknown';
+          devWarnIncomplete('signInWithPassword', status);
+          return { status: 'incomplete', clerkStatus: status };
         } catch (e) {
           if (isInvalidCredentialsError(e)) {
             return { status: 'invalid_credentials' };

@@ -111,10 +111,13 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
         // 'incomplete' — Clerk needs more factors (future MFA). Surface
         // a generic retry message; we don't handle 2FA yet. Tracked as
         // a failure with a distinct reason so the analytics funnel can
-        // separate "bad credentials" from "MFA wall".
+        // separate "bad credentials" from "MFA wall". `clerk_status` is
+        // forwarded so the funnel can disambiguate which non-complete
+        // state fired (MFA vs forced password reset vs instance config).
         track(AnalyticsEvents.SIGN_IN_FAILED, {
           method: 'email_password',
           reason: 'mfa_required',
+          clerk_status: result.clerkStatus,
         });
         setError('Additional verification is required. Please contact support.');
       }

@@ -175,11 +175,16 @@ export function IDVerification() {
             // counts toward the gate. router.back() alone would let
             // users tap-tap-tap the chevron forever without ever hitting
             // the lockout, which defeats the dismissable-twice rule.
+            // Disabled while non-idle for consistency with "Not now" —
+            // dismissing mid-startId would race against the inquiry
+            // creation and leave the user in a confusing state.
             onPress={handleNotNow}
+            disabled={working !== 'idle'}
             accessibilityRole="button"
             accessibilityLabel="Back"
+            accessibilityState={{ disabled: working !== 'idle' }}
             hitSlop={12}
-            className="h-10 w-10 items-center justify-center -ml-2"
+            className={`h-10 w-10 items-center justify-center -ml-2 ${working !== 'idle' ? 'opacity-50' : ''}`}
           >
             <ChevronLeft color="#6D28D9" size={22} />
           </Pressable>

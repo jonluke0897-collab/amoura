@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { isClerkAPIResponseError, useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 
 // Ensures any in-flight OAuth WebBrowser sessions complete when we return to the app.
 // Safe to call at module load; Clerk's Expo guide recommends this.
@@ -40,6 +40,49 @@ const isInvalidCredentialsError = (e: unknown) =>
   hasErrorCode(e, 'form_identifier_not_found') ||
   hasErrorCode(e, 'form_password_incorrect') ||
   hasErrorCode(e, 'form_password_or_identifier_incorrect');
+
+/**
+ * Pulls the structured fields off a Clerk API error so callers can forward
+ * them into telemetry and dev logs. Clerk wraps every API failure in an
+ * `errors[]` array — the top entry is what's user-facing, the rest are
+ * supplementary. We surface the first code as the primary signal and a
+ * comma-joined list as the secondary signal so PostHog can group failures
+ * by `clerk_code` without losing detail.
+ */
+export type ClerkErrorSummary = {
+  code: string;
+  codes: string;
+  message: string;
+  longMessage: string | null;
+  paramName: string | null;
+};
+
+export function summarizeClerkError(e: unknown): ClerkErrorSummary | null {
+  if (!isClerkAPIResponseError(e)) return null;
+  const errors = e.errors ?? [];
+  const first = errors[0];
+  if (!first) return null;
+  return {
+    code: first.code ?? 'unknown',
+    codes: errors.map((err) => err.code ?? 'unknown').join(','),
+    message: first.message ?? '',
+    longMessage: first.longMessage ?? null,
+    paramName: first.meta?.paramName ?? null,
+  };
+}
+
+// Dev-only structured warning — gives the developer the Clerk error code at
+// a glance instead of having to dig through an opaque "Something went wrong"
+// message in the UI. No-op in production.
+function devWarnAuthError(scope: string, e: unknown) {
+  if (!__DEV__) return;
+  const summary = summarizeClerkError(e);
+  if (summary) {
+    console.warn(`[Amoura] ${scope} — Clerk API error`, summary);
+  } else {
+    console.warn(`[Amoura] ${scope} — non-Clerk error`, e);
+  }
+}
 
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
@@ -197,10 +240,14 @@ export function useOAuthFlow() {
       setBusy('email');
       try {
         try {
-          // Clerk's legacy sign-in `create` takes identifier + password
-          // directly — there is no `strategy` parameter on this method
-          // signature. Passing one is typed-but-unsupported.
+          // `SignInCreateParams` is a discriminated union — for a password
+          // attempt the discriminator is `strategy: 'password'`. Without it,
+          // TypeScript narrows to the bare `{ identifier }` overload and
+          // Clerk's API silently treats the request as a factor-discovery
+          // call (returning `needs_first_factor`), or rejects it outright
+          // when password isn't a configured strategy on the instance.
           const attempt = await signIn.create({
+            strategy: 'password',
             identifier,
             password,
           });
@@ -213,6 +260,11 @@ export function useOAuthFlow() {
           if (isInvalidCredentialsError(e)) {
             return { status: 'invalid_credentials' };
           }
+          // Anything past this point is "unexpected" from the UI's POV
+          // (instance config issue, MFA, network, unverified email). Log
+          // the structured error in dev so the developer sees the code
+          // immediately; rethrow so the caller can record it in telemetry.
+          devWarnAuthError('signInWithPassword', e);
           throw e;
         }
       } finally {

@@ -8,7 +8,7 @@ import { Input } from '~/src/components/ui/Input';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { SIGN_IN } from '~/src/features/onboarding/onboardingCopy';
 import { EMAIL_PATTERN } from '~/src/lib/validation';
-import { useOAuthFlow } from './useOAuthFlow';
+import { summarizeClerkError, useOAuthFlow } from './useOAuthFlow';
 
 export type PasswordLoginSheetProps = {
   visible: boolean;
@@ -121,10 +121,18 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
     } catch (e) {
       // User sees stable copy; raw exception text goes to telemetry only.
       // Avoids leaking Clerk internals ("token_expired", network URLs, etc.)
-      // into UI that might be screenshotted or logged by the OS.
+      // into UI that might be screenshotted or logged by the OS. The
+      // structured Clerk fields (code + paramName) are forwarded as
+      // separate properties so the PostHog funnel can group failures by
+      // `clerk_code` — the message string alone hides whether it's an
+      // instance-config issue, an MFA wall, or a network blip.
+      const clerk = summarizeClerkError(e);
       track(AnalyticsEvents.SIGN_IN_FAILED, {
         method: 'email_password',
         error: e instanceof Error ? e.message : String(e),
+        clerk_code: clerk?.code ?? null,
+        clerk_codes: clerk?.codes ?? null,
+        clerk_param: clerk?.paramName ?? null,
       });
       setError(SIGN_IN.authUnexpected);
     }

@@ -13,6 +13,7 @@ import {
 import { checkLikeComment } from './moderation';
 import { computeAge } from './lib/age';
 import { isBlockedBetween } from './lib/blocks';
+import { LIKE_COMMENT_MAX_CHARS, LIKE_COMMENT_MIN_CHARS } from './lib/likeBounds';
 
 // Per PRD § 2.5 Security. Free tier gets 100/day, paid 1000/day. The roadmap
 // (TASK-048) mentions 8/day but that appears to be a paywall-messaging number
@@ -20,8 +21,6 @@ import { isBlockedBetween } from './lib/blocks';
 const FREE_LIKES_PER_DAY = 100;
 const PAID_LIKES_PER_DAY = 1000;
 
-const MIN_COMMENT_CHARS = 2;
-const MAX_COMMENT_CHARS = 500;
 
 const LIKE_TTL_MS = 7 * DAY_MS; // Matches schema's expiresAt semantics.
 
@@ -54,14 +53,14 @@ export const send = mutation({
     }
 
     const trimmedComment = args.comment.trim();
-    if (trimmedComment.length < MIN_COMMENT_CHARS) {
+    if (trimmedComment.length < LIKE_COMMENT_MIN_CHARS) {
       throw new Error(
-        `Comment must be at least ${MIN_COMMENT_CHARS} characters`,
+        `Comment must be at least ${LIKE_COMMENT_MIN_CHARS} characters`,
       );
     }
-    if (trimmedComment.length > MAX_COMMENT_CHARS) {
+    if (trimmedComment.length > LIKE_COMMENT_MAX_CHARS) {
       throw new Error(
-        `Comment must be ${MAX_COMMENT_CHARS} characters or fewer`,
+        `Comment must be ${LIKE_COMMENT_MAX_CHARS} characters or fewer`,
       );
     }
 

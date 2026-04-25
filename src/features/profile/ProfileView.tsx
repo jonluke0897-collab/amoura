@@ -112,6 +112,9 @@ export function ProfileView({
         contentContainerStyle={{
           // Reserve space for the sticky bottomSlot + the OS bottom inset
           // so the last scroll item isn't hidden behind the CTA + nav bar.
+          // 100px is the heuristic height of a single-row CTA button +
+          // its padding; bump this if the slot ever holds taller content
+          // (e.g. two-line buttons or stacked actions).
           paddingBottom: bottomSlot ? 100 + insets.bottom : 32,
         }}
       >

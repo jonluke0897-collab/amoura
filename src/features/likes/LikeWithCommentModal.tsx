@@ -11,6 +11,10 @@ import { X } from 'lucide-react-native';
 import { useMutation } from 'convex/react';
 import { api } from '~/convex/_generated/api';
 import type { Id } from '~/convex/_generated/dataModel';
+import {
+  LIKE_COMMENT_MAX_CHARS,
+  LIKE_COMMENT_MIN_CHARS,
+} from '~/convex/lib/likeBounds';
 import { BottomSheet } from '~/src/components/ui/BottomSheet';
 import { Button } from '~/src/components/ui/Button';
 import { Text } from '~/src/components/ui/Text';
@@ -39,11 +43,9 @@ export type LikeWithCommentModalProps = {
   onSuccess: (result: { matchId: Id<'matches'> | null }) => void;
 };
 
-// Match the schema bounds: FR-014 allows 2-500 chars. The UX nudge ("say
-// something specific") lives in the helper text under the input, not as a
-// hard validator, per the plan's comment-length decision.
-const MIN_CHARS = 2;
-const MAX_CHARS = 500;
+// Bounds shared with the server validator via `convex/lib/likeBounds`.
+// The UX nudge ("say something specific") lives in the helper text, not
+// as a tighter validator, per the plan's comment-length decision.
 
 export function LikeWithCommentModal({
   visible,
@@ -73,7 +75,7 @@ export function LikeWithCommentModal({
 
   const trimmed = text.trim();
   const charCount = trimmed.length;
-  const isValid = charCount >= MIN_CHARS && charCount <= MAX_CHARS;
+  const isValid = charCount >= LIKE_COMMENT_MIN_CHARS && charCount <= LIKE_COMMENT_MAX_CHARS;
 
   async function handleSubmit() {
     if (!target || !isValid || submitting) return;
@@ -86,24 +88,34 @@ export function LikeWithCommentModal({
         targetId: target.id,
         comment: trimmed,
       });
-      if (Platform.OS !== 'web') {
-        await Haptics.notificationAsync(
-          Haptics.NotificationFeedbackType.Success,
-        );
-      }
-      track(AnalyticsEvents.LIKE_SENT, { targetType: target.type });
-      if (result.matchId) {
-        track(AnalyticsEvents.MATCH_CREATED, {
-          via: 'reciprocal_like_on_send',
-        });
-      }
-      // Ask for push after a meaningful action (first like). OneSignal
-      // tracks the permission state so repeat calls are no-ops.
-      promptForPushPermissionIfNeeded();
+      // Critical success path first — once the like is in Convex we MUST
+      // close the modal cleanly. Non-critical side-effects (haptics,
+      // analytics, push prompt) run after and have their own error
+      // swallowing so a Haptics throw can't masquerade as a network
+      // failure and trigger setError.
       onSuccess({ matchId: result.matchId ?? null });
+      try {
+        if (Platform.OS !== 'web') {
+          void Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => undefined);
+        }
+        track(AnalyticsEvents.LIKE_SENT, { targetType: target.type });
+        if (result.matchId) {
+          track(AnalyticsEvents.MATCH_CREATED, {
+            via: 'reciprocal_like_on_send',
+          });
+        }
+        void promptForPushPermissionIfNeeded();
+      } catch (sideErr) {
+        if (__DEV__) {
+          console.warn('[likes] post-success side-effects failed', sideErr);
+        }
+      }
     } catch (e) {
       const rawMessage = e instanceof Error ? e.message : String(e);
       setError(mapErrorToCopy(rawMessage));
+    } finally {
       setSubmitting(false);
     }
   }
@@ -165,7 +177,7 @@ export function LikeWithCommentModal({
               editable={!submitting}
               placeholder={`Write to ${toDisplayName}…`}
               placeholderTextColor="#8A7F78"
-              maxLength={MAX_CHARS}
+              maxLength={LIKE_COMMENT_MAX_CHARS}
               style={{
                 flex: 1,
                 padding: 16,
@@ -178,9 +190,9 @@ export function LikeWithCommentModal({
           </View>
           <View className="flex-row justify-between items-center mt-2">
             <Text variant="caption" className="text-xs">
-              {charCount < MIN_CHARS
-                ? `${MIN_CHARS - charCount} more to send`
-                : `${charCount}/${MAX_CHARS}`}
+              {charCount < LIKE_COMMENT_MIN_CHARS
+                ? `${LIKE_COMMENT_MIN_CHARS - charCount} more to send`
+                : `${charCount}/${LIKE_COMMENT_MAX_CHARS}`}
             </Text>
             {error && (
               <Text

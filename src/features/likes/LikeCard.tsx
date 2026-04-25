@@ -53,9 +53,22 @@ export function LikeCard({
       const result = await respond({ likeId, action });
       if (action === 'match') {
         track(AnalyticsEvents.LIKE_RESPONDED_MATCH);
-        track(AnalyticsEvents.MATCH_CREATED, { via: 'like_responded' });
-        promptForPushPermissionIfNeeded();
-        if (result.matchId) onMatched(result.matchId);
+        if (result.matchId) {
+          // Only fire match-creation analytics + permission prompt + nav
+          // after we've confirmed a match actually exists. The server can
+          // soft-fail match creation (sender deactivated mid-flow) and
+          // return matchId=null; firing the events anyway would inflate
+          // PostHog's MATCH_CREATED count and prompt for push without
+          // anything to push.
+          track(AnalyticsEvents.MATCH_CREATED, { via: 'like_responded' });
+          void promptForPushPermissionIfNeeded();
+          onMatched(result.matchId);
+        } else {
+          Alert.alert(
+            'Match unavailable',
+            'This like is no longer available.',
+          );
+        }
       } else {
         track(AnalyticsEvents.LIKE_PASSED);
       }
@@ -67,6 +80,9 @@ export function LikeCard({
           ? 'This like is no longer available.'
           : "We couldn't complete that action. Try again.",
       );
+    } finally {
+      // Always clear busy. Pre-fix the success-pass path silently left
+      // the card disabled because setBusy(null) lived only in the catch.
       setBusy(null);
     }
   }

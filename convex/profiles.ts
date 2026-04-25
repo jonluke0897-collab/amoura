@@ -496,19 +496,19 @@ export const listFeed = query({
     const [activeAsA, activeAsB] = await Promise.all([
       ctx.db
         .query('matches')
-        .withIndex('by_user_a', (q) => q.eq('userAId', viewer._id))
+        .withIndex('by_user_a_status', (q) =>
+          q.eq('userAId', viewer._id).eq('status', 'active'),
+        )
         .collect(),
       ctx.db
         .query('matches')
-        .withIndex('by_user_b', (q) => q.eq('userBId', viewer._id))
+        .withIndex('by_user_b_status', (q) =>
+          q.eq('userBId', viewer._id).eq('status', 'active'),
+        )
         .collect(),
     ]);
-    for (const m of activeAsA) {
-      if (m.status === 'active') skipIds.add(m.userBId);
-    }
-    for (const m of activeAsB) {
-      if (m.status === 'active') skipIds.add(m.userAId);
-    }
+    for (const m of activeAsA) skipIds.add(m.userBId);
+    for (const m of activeAsB) skipIds.add(m.userAId);
 
     // `by_visible_city` is `[isVisible, city]` plus the implicit _creationTime
     // suffix, so .order('desc') gives newest-first pagination without an

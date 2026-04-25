@@ -1,5 +1,14 @@
 # Phase 5 Copy Review
 
+> ### 🚨 Hard merge gate
+>
+> **The Wave 2 PR (and Wave 3) MUST NOT merge to main until at least
+> one paid trans advisor returns written sign-off on the strings
+> below.** This is the advisor gate from `CLAUDE.md` and
+> `docs/product-vision.md` § 1, applied to TASK-068. Placeholders ship
+> in code so the build is testable, but no production deploy happens
+> until the sign-off block at the bottom of this file is filled in.
+>
 > Compiled for trans-advisor sign-off per the advisor gate in
 > `CLAUDE.md` and `docs/product-roadmap.md` TASK-068.
 >
@@ -93,6 +102,7 @@ the existing Unmatch flow in `ChatHeader.tsx`).
 - `Safety & Privacy`
 
 ### Rows
+
 | Label | Hint | Action |
 |---|---|---|
 | Verify your photo | Coming soon | Alert: *Photo verification is almost here.* / *We're adding photo and ID verification in the next update.* |

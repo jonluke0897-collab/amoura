@@ -11,7 +11,7 @@ import { Button } from '~/src/components/ui/Button';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { LikeWithCommentModal } from '~/src/features/likes/LikeWithCommentModal';
 import { ReportSheet } from '~/src/features/reports/ReportSheet';
-import { useBlockAction } from '~/src/features/blocks/BlockAction';
+import { SafetyMenuItems } from '~/src/features/safety/SafetyMenuItems';
 import { ProfileView, type LikeTarget } from './ProfileView';
 
 export type ProfileDetailScreenProps = {
@@ -23,7 +23,6 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const track = useTrack();
   const profile = useQuery(api.profiles.getPublic, { userId });
-  const blockUser = useBlockAction();
 
   // Target + modal state. Selection persists across re-renders but resets
   // if the user navigates away (screen unmounts).
@@ -150,43 +149,21 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
             // Anchor the menu beneath the three-dot pill (top-right, ~10px
             // below the pill's bottom edge). Mirrors the ChatHeader menu's
             // visual offset so the two surfaces feel consistent.
-            style={{ top: insets.top + 56, right: 16 }}
+            style={{ top: insets.top + 56, right: 16, minWidth: 160 }}
             className="absolute bg-cream-50 rounded-md shadow-modal border border-plum-50 overflow-hidden"
           >
-            <Pressable
-              onPress={() => {
+            <SafetyMenuItems
+              reportedUserId={profile.userId}
+              reportedDisplayName={profile.displayName}
+              onReportPress={() => {
                 setMenuOpen(false);
                 setReportSheetOpen(true);
               }}
-              className="px-4 py-3"
-              accessibilityRole="button"
-              accessibilityLabel="Report this person"
-              style={{ minWidth: 160 }}
-            >
-              <Text variant="body" className="text-plum-900">
-                Report
-              </Text>
-            </Pressable>
-            <View className="h-px bg-plum-50" />
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                blockUser({
-                  targetUserId: profile.userId,
-                  displayName: profile.displayName,
-                  // After blocking, route back so the user isn't sitting on
-                  // a profile they just made invisible.
-                  onSuccess: () => router.back(),
-                });
-              }}
-              className="px-4 py-3"
-              accessibilityRole="button"
-              accessibilityLabel="Block this person"
-            >
-              <Text variant="body" className="text-rose-700">
-                Block
-              </Text>
-            </Pressable>
+              onBlockPress={() => setMenuOpen(false)}
+              // After block the profile is invisible to the blocker, so route
+              // back rather than sitting on the now-blocked profile.
+              onBlockSuccess={() => router.back()}
+            />
           </View>
         </Pressable>
       </Modal>

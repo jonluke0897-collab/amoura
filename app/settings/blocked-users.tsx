@@ -1,4 +1,4 @@
-import { FlatList, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePaginatedQuery } from 'convex/react';
@@ -36,7 +36,13 @@ export default function BlockedUsersScreen() {
       </View>
 
       {list.status === 'LoadingFirstPage' ? (
-        <View className="flex-1" />
+        <View
+          className="flex-1 items-center justify-center"
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading blocked users"
+        >
+          <ActivityIndicator color="#6D28D9" />
+        </View>
       ) : list.results.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <Shield color="#A78BFA" size={40} />

@@ -1,4 +1,4 @@
-import { FlatList, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePaginatedQuery } from 'convex/react';
@@ -6,24 +6,15 @@ import { ChevronLeft, FileText } from 'lucide-react-native';
 import { api } from '~/convex/_generated/api';
 import { Text } from '~/src/components/ui/Text';
 import { formatMatchListActivity } from '~/src/lib/dateFormat';
+import { reportReasonLabel } from '~/src/features/reports/reportReasons';
 
 const PAGE_SIZE = 20;
 
-const REASON_LABELS: Record<string, string> = {
-  fetishization: 'Fetishizing behavior',
-  transphobia: 'Transphobia',
-  'unwanted-sexual-content': 'Unwanted sexual content',
-  harassment: 'Harassment',
-  'safety-concern': 'Safety concern',
-  'fake-profile': 'Fake profile',
-  underage: 'Underage',
-  spam: 'Spam or scam',
-  other: 'Something else',
-};
+type StatusTone = 'neutral' | 'progress' | 'success' | 'muted';
 
 const STATUS_COPY: Record<
   'open' | 'under-review' | 'actioned' | 'dismissed',
-  { label: string; tone: 'neutral' | 'progress' | 'success' | 'muted' }
+  { label: string; tone: StatusTone }
 > = {
   open: { label: 'Awaiting review', tone: 'neutral' },
   'under-review': { label: 'In review', tone: 'progress' },
@@ -31,14 +22,15 @@ const STATUS_COPY: Record<
   dismissed: { label: 'No action', tone: 'muted' },
 };
 
-const STATUS_PILL_CLASSES: Record<
-  'neutral' | 'progress' | 'success' | 'muted',
-  string
-> = {
-  neutral: 'bg-plum-50 text-plum-700',
-  progress: 'bg-peach-100 text-peach-700',
-  success: 'bg-plum-600 text-cream-50',
-  muted: 'bg-cream-100 text-plum-400',
+// Split bg / text into named fields rather than a single class string —
+// the previous shape relied on .split(' ')[0/1] at the call site, which
+// silently broke if anyone added a third class to the bundle. Typed
+// fields make the contract explicit and ESLint-checkable.
+const STATUS_PILL_CLASSES: Record<StatusTone, { bg: string; text: string }> = {
+  neutral: { bg: 'bg-plum-50', text: 'text-plum-700' },
+  progress: { bg: 'bg-peach-100', text: 'text-peach-700' },
+  success: { bg: 'bg-plum-600', text: 'text-cream-50' },
+  muted: { bg: 'bg-cream-100', text: 'text-plum-400' },
 };
 
 export default function MyReportsScreen() {
@@ -68,7 +60,13 @@ export default function MyReportsScreen() {
       </View>
 
       {list.status === 'LoadingFirstPage' ? (
-        <View className="flex-1" />
+        <View
+          className="flex-1 items-center justify-center"
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading reports"
+        >
+          <ActivityIndicator color="#6D28D9" />
+        </View>
       ) : list.results.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
           <FileText color="#A78BFA" size={40} />
@@ -90,19 +88,15 @@ export default function MyReportsScreen() {
           onEndReachedThreshold={0.4}
           renderItem={({ item }) => {
             const statusCopy = STATUS_COPY[item.status];
+            const pill = STATUS_PILL_CLASSES[statusCopy.tone];
             return (
               <View className="px-4 py-3 border-b border-plum-50">
                 <View className="flex-row items-center justify-between mb-1">
                   <Text variant="body" className="text-base text-plum-900 flex-1 mr-2">
-                    {REASON_LABELS[item.reason] ?? item.reason}
+                    {reportReasonLabel(item.reason)}
                   </Text>
-                  <View
-                    className={`px-2 py-0.5 rounded-full ${STATUS_PILL_CLASSES[statusCopy.tone].split(' ')[0]}`}
-                  >
-                    <Text
-                      variant="caption"
-                      className={`text-xs ${STATUS_PILL_CLASSES[statusCopy.tone].split(' ')[1]}`}
-                    >
+                  <View className={`px-2 py-0.5 rounded-full ${pill.bg}`}>
+                    <Text variant="caption" className={`text-xs ${pill.text}`}>
                       {statusCopy.label}
                     </Text>
                   </View>

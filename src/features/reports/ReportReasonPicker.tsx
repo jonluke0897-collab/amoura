@@ -1,78 +1,39 @@
 import { Pressable, View } from 'react-native';
 import { Text } from '~/src/components/ui/Text';
+import { REPORT_REASON_LABELS, type ReportReason } from './reportReasons';
 
-/**
- * The schema-level enum for report reasons (PRD § 6 FR-021). Keep in lockstep
- * with `convex/schema.ts` reports.reason — adding or renaming a value here
- * without updating the schema validator (or vice versa) will throw at submit
- * time. The display label is curated copy; do not derive it from the enum
- * value programmatically because the wording matters and is reviewed with
- * trans advisors per TASK-068.
- */
-export type ReportReason =
-  | 'fetishization'
-  | 'transphobia'
-  | 'unwanted-sexual-content'
-  | 'harassment'
-  | 'safety-concern'
-  | 'fake-profile'
-  | 'underage'
-  | 'spam'
-  | 'other';
+export type { ReportReason };
 
 type ReasonOption = {
   value: ReportReason;
-  label: string;
   description: string;
 };
 
-const REASONS: readonly ReasonOption[] = [
-  {
-    value: 'fetishization',
-    label: 'Fetishizing behavior',
-    description: 'Treating someone as a body type or category, not a person.',
-  },
-  {
-    value: 'transphobia',
-    label: 'Transphobia',
-    description: 'Slurs, misgendering on purpose, or hateful language.',
-  },
-  {
-    value: 'unwanted-sexual-content',
-    label: 'Unwanted sexual content',
-    description: 'Explicit messages or photos you didn’t ask for.',
-  },
-  {
-    value: 'harassment',
-    label: 'Harassment',
-    description: 'Threats, repeated unwanted contact, intimidation.',
-  },
-  {
-    value: 'safety-concern',
-    label: 'Safety concern',
-    description: 'Self-harm, danger to themselves or others.',
-  },
-  {
-    value: 'fake-profile',
-    label: 'Fake profile',
-    description: 'Impersonation, catfishing, or stolen photos.',
-  },
-  {
-    value: 'underage',
-    label: 'Underage',
-    description: 'You believe this person is under 18.',
-  },
-  {
-    value: 'spam',
-    label: 'Spam or scam',
-    description: 'Promotion, off-platform redirects, or fraud.',
-  },
-  {
-    value: 'other',
-    label: 'Something else',
-    description: 'Tell us in your own words on the next step.',
-  },
-];
+// Per-reason descriptions live here (not in the shared module) because
+// they're only shown at report-submission time. The shared module owns
+// the label catalogue; this array adds the picker-only disambiguation
+// copy on top.
+const REASON_DESCRIPTIONS: Readonly<Record<ReportReason, string>> = {
+  fetishization: 'Treating someone as a body type or category, not a person.',
+  transphobia: 'Slurs, misgendering on purpose, or hateful language.',
+  'unwanted-sexual-content': 'Explicit messages or photos you didn’t ask for.',
+  harassment: 'Threats, repeated unwanted contact, intimidation.',
+  'safety-concern': 'Self-harm, danger to themselves or others.',
+  'fake-profile': 'Impersonation, catfishing, or stolen photos.',
+  underage: 'You believe this person is under 18.',
+  spam: 'Promotion, off-platform redirects, or fraud.',
+  other: 'Tell us in your own words on the next step.',
+};
+
+// Build options in the canonical display order from the shared label map.
+// Object.entries on a typed Record preserves declaration order at runtime,
+// so the order matches the shared module's source.
+const REASONS: readonly ReasonOption[] = (
+  Object.keys(REPORT_REASON_LABELS) as ReportReason[]
+).map((value) => ({
+  value,
+  description: REASON_DESCRIPTIONS[value],
+}));
 
 export type ReportReasonPickerProps = {
   selected: ReportReason | null;
@@ -94,13 +55,14 @@ export function ReportReasonPicker({
     <View>
       {REASONS.map((option, index) => {
         const isSelected = selected === option.value;
+        const label = REPORT_REASON_LABELS[option.value];
         return (
           <Pressable
             key={option.value}
             onPress={() => onSelect(option.value)}
             accessibilityRole="radio"
             accessibilityState={{ selected: isSelected }}
-            accessibilityLabel={`${option.label}. ${option.description}`}
+            accessibilityLabel={`${label}. ${option.description}`}
             className={`flex-row items-start py-3 px-2 ${index > 0 ? 'border-t border-plum-50' : ''}`}
           >
             {/* Custom radio: an outlined circle that fills with plum-600 when
@@ -121,7 +83,7 @@ export function ReportReasonPicker({
                 variant="body"
                 className={`text-base ${isSelected ? 'text-plum-900' : 'text-plum-700'}`}
               >
-                {option.label}
+                {label}
               </Text>
               <Text variant="caption" className="text-xs text-plum-600 mt-0.5">
                 {option.description}

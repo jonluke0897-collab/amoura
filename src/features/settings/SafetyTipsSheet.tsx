@@ -1,4 +1,4 @@
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
 import { ExternalLink, X } from 'lucide-react-native';
 import { BottomSheet } from '~/src/components/ui/BottomSheet';
 import { Text } from '~/src/components/ui/Text';
@@ -72,6 +72,21 @@ const CRISIS_RESOURCES: readonly CrisisResource[] = [
   },
 ];
 
+async function openCrisisResource(resource: CrisisResource): Promise<void> {
+  // A user reaching for a crisis link is in the worst possible moment for
+  // a silent failure. Catch any error from the system handler (no browser,
+  // misconfigured intent on Android, deep-link permission denied, etc.)
+  // and surface the URL so they can still reach the resource manually.
+  try {
+    await Linking.openURL(resource.url);
+  } catch {
+    Alert.alert(
+      `Couldn’t open ${resource.name}`,
+      `Try visiting ${resource.url} in your browser, or call the number listed.`,
+    );
+  }
+}
+
 export function SafetyTipsSheet({ visible, onClose }: SafetyTipsSheetProps) {
   return (
     <BottomSheet
@@ -122,7 +137,9 @@ export function SafetyTipsSheet({ visible, onClose }: SafetyTipsSheetProps) {
           {CRISIS_RESOURCES.map((resource) => (
             <Pressable
               key={resource.name}
-              onPress={() => Linking.openURL(resource.url)}
+              onPress={() => {
+                void openCrisisResource(resource);
+              }}
               accessibilityRole="link"
               accessibilityLabel={`Open ${resource.name}`}
               className="flex-row items-start py-3 border-b border-plum-50"

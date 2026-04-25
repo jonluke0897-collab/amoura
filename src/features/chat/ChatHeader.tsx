@@ -8,6 +8,8 @@ import type { Id } from '~/convex/_generated/dataModel';
 import { Avatar } from '~/src/components/ui/Avatar';
 import { Text } from '~/src/components/ui/Text';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
+import { ReportSheet } from '~/src/features/reports/ReportSheet';
+import { SafetyMenuItems } from '~/src/features/safety/SafetyMenuItems';
 
 export type ChatHeaderProps = {
   matchId: Id<'matches'>;
@@ -30,6 +32,7 @@ export function ChatHeader({
   const track = useTrack();
   const unmatch = useMutation(api.matches.unmatch);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reportSheetOpen, setReportSheetOpen] = useState(false);
 
   function confirmUnmatch() {
     setMenuOpen(false);
@@ -113,19 +116,23 @@ export function ChatHeader({
       {/* Menu rendered via Modal so taps work outside the header's bounds.
           Inline-absolute positioning was hit-clipped by Android's parent
           bounds when the menu sat below the header. The Modal opens a new
-          window so hit-testing is independent of the header's flex box. */}
+          window so hit-testing is independent of the header's flex box.
+          Sibling-backdrop pattern: full-screen Pressable handles dismiss,
+          menu container is its sibling — avoids propagation from menu-item
+          onPress up to the dismiss handler. */}
       <Modal
         visible={menuOpen}
         transparent
         animationType="fade"
         onRequestClose={() => setMenuOpen(false)}
       >
-        <Pressable
-          className="flex-1"
-          onPress={() => setMenuOpen(false)}
-          accessibilityRole="button"
-          accessibilityLabel="Close menu"
-        >
+        <View className="flex-1">
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setMenuOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+          />
           {/* The dropdown sits roughly under the ⋮ icon (top-right of the
               header). Top offset = status bar + header (~96 on most
               Androids); cheap visual approximation. */}
@@ -146,7 +153,20 @@ export function ChatHeader({
                 View profile
               </Text>
             </Pressable>
-            <View className="h-px bg-plum-50" />
+            <SafetyMenuItems
+              reportedUserId={counterpartyUserId}
+              reportedDisplayName={counterpartyDisplayName}
+              onReportPress={() => {
+                setMenuOpen(false);
+                setReportSheetOpen(true);
+              }}
+              onBlockPress={() => setMenuOpen(false)}
+              // After block the chat is unmatched, so route back to matches
+              // list rather than sitting on a now-defunct conversation.
+              onBlockSuccess={() => router.back()}
+              showLeadingDivider
+              showTrailingDivider
+            />
             <Pressable
               onPress={confirmUnmatch}
               className="px-4 py-3"
@@ -158,8 +178,15 @@ export function ChatHeader({
               </Text>
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       </Modal>
+      <ReportSheet
+        visible={reportSheetOpen}
+        onClose={() => setReportSheetOpen(false)}
+        reportedUserId={counterpartyUserId}
+        reportedDisplayName={counterpartyDisplayName}
+        matchId={matchId}
+      />
     </View>
   );
 }

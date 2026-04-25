@@ -75,7 +75,7 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
   // the switch is untouched, we preserve the stored value as-is.
   const [t4tTouched, setT4tTouched] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [showVerifiedHint, setShowVerifiedHint] = useState(false);
+  const [verifiedTouched, setVerifiedTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,8 +93,8 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
       setIntentions(sanitizeIntentions(prefs.intentions));
       setT4tOnly(prefs.t4tPreference === 't4t-only');
       setT4tTouched(false);
-      setVerifiedOnly(false);
-      setShowVerifiedHint(false);
+      setVerifiedOnly(prefs.verifiedOnly);
+      setVerifiedTouched(false);
       setError(null);
     }
   }, [visible, prefs]);
@@ -157,7 +157,14 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
         maxDistanceKm: distanceKm,
         intentions,
         t4tPreference: nextT4tPreference,
+        // Only write verifiedOnly when the user actually flipped the
+        // toggle. Mirrors the t4tTouched pattern: an untouched switch
+        // shouldn't clobber the stored preference on a no-op Apply.
+        verifiedOnly: verifiedTouched ? verifiedOnly : undefined,
       });
+      if (verifiedTouched) {
+        track(AnalyticsEvents.FILTER_VERIFIED_TOGGLED, { enabled: verifiedOnly });
+      }
       track(AnalyticsEvents.FILTERS_APPLIED, {
         ageMin,
         ageMax,
@@ -313,19 +320,13 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
             <Section title="Verified only">
               <ToggleRow
                 label="Only photo-verified profiles"
-                description="Coming with verification in Phase 5."
+                description="Hide profiles that haven’t completed photo verification yet."
                 value={verifiedOnly}
                 onValueChange={(v) => {
                   setVerifiedOnly(v);
-                  if (v) setShowVerifiedHint(true);
+                  setVerifiedTouched(true);
                 }}
               />
-              {showVerifiedHint && (
-                <Text variant="caption" className="text-plum-400 mt-1">
-                  Verified-only filtering goes live when photo verification
-                  ships in Phase 5.
-                </Text>
-              )}
             </Section>
 
             {error && (

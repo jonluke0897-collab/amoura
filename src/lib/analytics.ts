@@ -34,6 +34,14 @@ export const AnalyticsEvents = {
   MESSAGE_SENT: 'message_sent',
   CONVERSATION_DEPTH_5: 'conversation_has_5_messages',
   UNMATCH: 'unmatch',
+  // Phase 5 — Safety. Funnel for moderator load planning:
+  //   profile_detail_viewed | chat_opened → report_submitted (with reason)
+  //   profile_detail_viewed | chat_opened → block_user
+  //   filter_verified_toggled (paid vs free for paywall conversion in P6)
+  REPORT_SUBMITTED: 'report_submitted',
+  BLOCK_USER: 'block_user',
+  UNBLOCK_USER: 'unblock_user',
+  FILTER_VERIFIED_TOGGLED: 'filter_verified_toggled',
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

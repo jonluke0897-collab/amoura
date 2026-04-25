@@ -54,6 +54,13 @@ export default defineSchema({
     ageMax: v.optional(v.number()),
     bio: v.optional(v.string()),
     isVisible: v.boolean(),
+    // Phase 5 TASK-062: feed filter preference. When true, listFeed only
+    // returns candidates with an approved photo verification. Persisted on
+    // the profile (matching t4tPreference) so the toggle survives sessions
+    // and the FilterSheet can rehydrate from it. Phase 6 will gate setting
+    // this to true behind a paid-tier paywall; for Phase 5 it's open to
+    // everyone.
+    verifiedOnly: v.optional(v.boolean()),
     // Pledge snapshot for audit: which version of the pledge copy this user
     // accepted. The completion timestamps on users are what gating logic reads;
     // these fields are the historical record for moderation/audit.

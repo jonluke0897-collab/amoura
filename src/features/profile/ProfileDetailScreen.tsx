@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from 'convex/react';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, MoreVertical } from 'lucide-react-native';
 import { api } from '~/convex/_generated/api';
 import type { Id } from '~/convex/_generated/dataModel';
 import { Text } from '~/src/components/ui/Text';
 import { Button } from '~/src/components/ui/Button';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { LikeWithCommentModal } from '~/src/features/likes/LikeWithCommentModal';
+import { ReportSheet } from '~/src/features/reports/ReportSheet';
+import { SafetyMenuItems } from '~/src/features/safety/SafetyMenuItems';
 import { ProfileView, type LikeTarget } from './ProfileView';
 
 export type ProfileDetailScreenProps = {
@@ -26,6 +28,8 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
   // if the user navigates away (screen unmounts).
   const [selectedTarget, setSelectedTarget] = useState<LikeTarget | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportSheetOpen, setReportSheetOpen] = useState(false);
 
   useEffect(() => {
     track(AnalyticsEvents.PROFILE_DETAIL_VIEWED);
@@ -114,6 +118,69 @@ export function ProfileDetailScreen({ userId }: ProfileDetailScreenProps) {
       >
         <ChevronLeft color="#6D28D9" size={22} />
       </Pressable>
+
+      {/* Mirror three-dot button on the right, opens a menu with Report and
+          Block. Same pill styling as the back button so the two anchors
+          read as a pair across the hero photo. */}
+      <Pressable
+        onPress={() => setMenuOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="More options"
+        hitSlop={12}
+        style={{ top: insets.top + 12 }}
+        className="absolute right-4 h-10 w-10 rounded-full bg-cream-50/90 items-center justify-center shadow-card"
+      >
+        <MoreVertical color="#6D28D9" size={20} />
+      </Pressable>
+
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        {/* Sibling-backdrop pattern: a full-screen Pressable handles
+            dismiss-on-tap, the menu container is its sibling above it.
+            Earlier nesting (Pressable wrapping the menu View) risked taps
+            on menu items propagating up and triggering setMenuOpen(false)
+            in addition to the item's onPress, which on RN 0.81+ leaves the
+            sheet flickering. Mirrors the BottomSheet primitive's pattern. */}
+        <View className="flex-1">
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setMenuOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+          />
+          <View
+            // Anchor the menu beneath the three-dot pill (top-right, ~10px
+            // below the pill's bottom edge). Mirrors the ChatHeader menu's
+            // visual offset so the two surfaces feel consistent.
+            style={{ top: insets.top + 56, right: 16, minWidth: 160 }}
+            className="absolute bg-cream-50 rounded-md shadow-modal border border-plum-50 overflow-hidden"
+          >
+            <SafetyMenuItems
+              reportedUserId={profile.userId}
+              reportedDisplayName={profile.displayName}
+              onReportPress={() => {
+                setMenuOpen(false);
+                setReportSheetOpen(true);
+              }}
+              onBlockPress={() => setMenuOpen(false)}
+              // After block the profile is invisible to the blocker, so route
+              // back rather than sitting on the now-blocked profile.
+              onBlockSuccess={() => router.back()}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <ReportSheet
+        visible={reportSheetOpen}
+        onClose={() => setReportSheetOpen(false)}
+        reportedUserId={profile.userId}
+        reportedDisplayName={profile.displayName}
+      />
 
       <LikeWithCommentModal
         visible={modalVisible}

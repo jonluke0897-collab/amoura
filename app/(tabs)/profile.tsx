@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useMutation, useQuery } from 'convex/react';
@@ -11,6 +11,7 @@ import { Button } from '~/src/components/ui/Button';
 import { ProfileView } from '~/src/features/profile/ProfileView';
 import { NameEditSheet } from '~/src/features/profile/NameEditSheet';
 import { CityPickerSheet } from '~/src/features/location/CityPickerSheet';
+import { SafetyTipsSheet } from '~/src/features/settings/SafetyTipsSheet';
 
 export default function ProfileTab() {
   const me = useQuery(api.users.me);
@@ -19,6 +20,7 @@ export default function ProfileTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [nameEditOpen, setNameEditOpen] = useState(false);
+  const [safetyTipsOpen, setSafetyTipsOpen] = useState(false);
   const { signOut } = useAuth();
   const markOnboardingComplete = useMutation(api.profiles.markOnboardingComplete);
   const insets = useSafeAreaInsets();
@@ -74,6 +76,33 @@ export default function ProfileTab() {
     setNameEditOpen(true);
   };
 
+  const goToBlockedUsers = () => {
+    setSheetOpen(false);
+    router.push('/settings/blocked-users');
+  };
+
+  const goToMyReports = () => {
+    setSheetOpen(false);
+    router.push('/settings/my-reports');
+  };
+
+  const handleSafetyTips = () => {
+    setSheetOpen(false);
+    setSafetyTipsOpen(true);
+  };
+
+  // Wave 3 (verification flows) hasn't shipped yet. Tapping these surfaces
+  // an Alert so users can see verification is on the way without us
+  // wiring dead links. When the SelfieVerification / IDVerification
+  // screens land, swap these for router.push() calls.
+  const handleComingSoon = (label: string) => {
+    setSheetOpen(false);
+    Alert.alert(
+      `${label} is almost here.`,
+      'We’re adding photo and ID verification in the next update.',
+    );
+  };
+
   return (
     <View className="flex-1 bg-cream-50">
       <ProfileView
@@ -115,11 +144,16 @@ export default function ProfileTab() {
         <Pressable className="flex-1 bg-black/40" onPress={() => setSheetOpen(false)}>
           <Pressable
             className="absolute bottom-0 left-0 right-0 bg-cream-50 rounded-t-lg pt-4 px-5"
-            style={{ paddingBottom: Math.max(insets.bottom, 24) }}
+            style={{
+              paddingBottom: Math.max(insets.bottom, 24),
+              maxHeight: '85%',
+            }}
             // Catch presses so the backdrop press-through doesn't close when
             // users tap inside the sheet itself. Bottom padding uses the
             // larger of the safe-area inset (Android gesture bar / iOS home
             // indicator) or 24px so the sheet never hugs the nav bar.
+            // The 85% height cap + ScrollView accommodates Phase 5's
+            // expanded row count (Safety & Privacy section).
             onPress={() => {}}
           >
             <View className="flex-row items-center justify-between mb-4">
@@ -135,17 +169,35 @@ export default function ProfileTab() {
                 <X color="#6D28D9" size={22} />
               </Pressable>
             </View>
-            <SheetRow label="Edit photos" onPress={() => goToEdit('photos')} />
-            <SheetRow label="Edit prompts" onPress={() => goToEdit('prompts')} />
-            <SheetRow label="Edit identity" onPress={() => goToEdit('identity')} />
-            <SheetRow label="Change name" onPress={handleChangeName} />
-            <SheetRow label="Change city" onPress={handleChangeCity} />
-            <View className="h-px bg-plum-50 my-3" />
-            <Button
-              label="Sign out"
-              variant="ghost"
-              onPress={handleSignOut}
-            />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <SheetRow label="Edit photos" onPress={() => goToEdit('photos')} />
+              <SheetRow label="Edit prompts" onPress={() => goToEdit('prompts')} />
+              <SheetRow label="Edit identity" onPress={() => goToEdit('identity')} />
+              <SheetRow label="Change name" onPress={handleChangeName} />
+              <SheetRow label="Change city" onPress={handleChangeCity} />
+
+              <SectionHeader label="Safety & Privacy" />
+              <SheetRow
+                label="Verify your photo"
+                hint="Coming soon"
+                onPress={() => handleComingSoon('Photo verification')}
+              />
+              <SheetRow
+                label="Verify your ID"
+                hint="Coming soon"
+                onPress={() => handleComingSoon('ID verification')}
+              />
+              <SheetRow label="Blocked users" onPress={goToBlockedUsers} />
+              <SheetRow label="My reports" onPress={goToMyReports} />
+              <SheetRow label="Safety tips" onPress={handleSafetyTips} />
+
+              <View className="h-px bg-plum-50 my-3" />
+              <Button
+                label="Sign out"
+                variant="ghost"
+                onPress={handleSignOut}
+              />
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -162,16 +214,51 @@ export default function ProfileTab() {
         onClose={() => setNameEditOpen(false)}
         onSaved={() => setNameEditOpen(false)}
       />
+
+      <SafetyTipsSheet
+        visible={safetyTipsOpen}
+        onClose={() => setSafetyTipsOpen(false)}
+      />
     </View>
   );
 }
 
-function SheetRow({ label, onPress }: { label: string; onPress: () => void }) {
+function SheetRow({
+  label,
+  onPress,
+  hint,
+}: {
+  label: string;
+  onPress: () => void;
+  hint?: string;
+}) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" className="py-3">
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className="flex-row items-center justify-between py-3"
+    >
       <Text variant="body" className="text-base text-plum-900">
         {label}
       </Text>
+      {hint && (
+        <Text variant="caption" className="text-xs text-plum-400">
+          {hint}
+        </Text>
+      )}
     </Pressable>
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <View className="mt-4 mb-1 pt-3 border-t border-plum-50">
+      <Text
+        variant="caption"
+        className="text-xs uppercase tracking-wider text-plum-400"
+      >
+        {label}
+      </Text>
+    </View>
   );
 }

@@ -109,7 +109,14 @@ export function ReportSheet({
       } else if (raw.includes("can't report yourself")) {
         setError('You can’t report yourself.');
       } else {
-        setError(raw);
+        // Don't surface arbitrary server-side error text to users — those
+        // messages are written for debugging (table not found, validator
+        // failures, internal IDs) and read poorly mid-flow. Log the raw
+        // for triage; show the user a generic apology with a retry path.
+        // When Sentry lands in Phase 7, this `console.warn` is the hook
+        // a `Sentry.captureException` replaces.
+        console.warn('[reports.submit] unexpected error', raw);
+        setError('Something went wrong sending your report. Please try again.');
       }
     } finally {
       setSubmitting(false);

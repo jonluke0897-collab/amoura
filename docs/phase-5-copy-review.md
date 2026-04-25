@@ -66,7 +66,7 @@ intent the reporter chose this category.
 |---|---|
 | Self-report (server: `You can't report yourself.`) | You can't report yourself. |
 | Rate-limit (server: `RATE_LIMITED:reports-daily:5`) | Thanks — we're seeing a lot of reports from you today. Please make sure each is a real concern. |
-| Other server errors | Surfaced verbatim from the mutation — should be rare (linked-message validation, target not found). |
+| Other server errors | "Something went wrong sending your report. Please try again." Raw error is logged via `console.warn` for triage (Sentry hook in Phase 7) — never surfaced to the user, since those messages are written for debugging and read poorly mid-flow. |
 
 ---
 

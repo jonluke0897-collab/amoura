@@ -318,6 +318,7 @@ export default defineSchema({
       v.literal('ban'),
       v.literal('dismiss'),
       v.literal('auto-suspend'),
+      v.literal('reinstate'),
     ),
     reason: v.optional(v.string()),
     relatedReportId: v.optional(v.id('reports')),

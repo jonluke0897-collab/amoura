@@ -151,6 +151,11 @@ type BlockedUserRow = {
  * Powers the Settings → Blocked Users screen so the user can unblock.
  * Returns up to 200 rows — anyone with more blocks than that has bigger
  * problems than scrolling.
+ *
+ * Per-row enrichment (user → profile → first photo → photo URL) runs in
+ * parallel across rows via Promise.all. Within a single row the user→
+ * profile→photo chain stays sequential because each step depends on the
+ * previous, but at 200 rows the cross-row parallelism is what matters.
  */
 export const list = query({
   handler: async (ctx): Promise<BlockedUserRow[]> => {
@@ -161,36 +166,36 @@ export const list = query({
       .order('desc')
       .take(200);
 
-    const out: BlockedUserRow[] = [];
-    for (const block of rows) {
-      const blockedUser = await ctx.db.get(block.blockedUserId);
-      if (!blockedUser) continue;
-      // Pull the first profile photo for visual recognition in the list.
-      const profile = await ctx.db
-        .query('profiles')
-        .withIndex('by_user', (q) => q.eq('userId', blockedUser._id))
-        .unique();
-      let firstPhotoUrl: string | null = null;
-      if (profile) {
-        const photo = await ctx.db
-          .query('photos')
-          .withIndex('by_profile_position', (q) =>
-            q.eq('profileId', profile._id),
-          )
-          .order('asc')
-          .first();
-        if (photo) {
-          firstPhotoUrl = await ctx.storage.getUrl(photo.storageId);
+    const enriched = await Promise.all(
+      rows.map(async (block): Promise<BlockedUserRow | null> => {
+        const blockedUser = await ctx.db.get(block.blockedUserId);
+        if (!blockedUser) return null;
+        const profile = await ctx.db
+          .query('profiles')
+          .withIndex('by_user', (q) => q.eq('userId', blockedUser._id))
+          .unique();
+        let firstPhotoUrl: string | null = null;
+        if (profile) {
+          const photo = await ctx.db
+            .query('photos')
+            .withIndex('by_profile_position', (q) =>
+              q.eq('profileId', profile._id),
+            )
+            .order('asc')
+            .first();
+          if (photo) {
+            firstPhotoUrl = await ctx.storage.getUrl(photo.storageId);
+          }
         }
-      }
-      out.push({
-        blockId: block._id,
-        userId: blockedUser._id,
-        displayName: blockedUser.displayName,
-        firstPhotoUrl,
-        blockedAt: block.createdAt,
-      });
-    }
-    return out;
+        return {
+          blockId: block._id,
+          userId: blockedUser._id,
+          displayName: blockedUser.displayName,
+          firstPhotoUrl,
+          blockedAt: block.createdAt,
+        };
+      }),
+    );
+    return enriched.filter((row): row is BlockedUserRow => row !== null);
   },
 });

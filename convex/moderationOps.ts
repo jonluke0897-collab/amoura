@@ -204,11 +204,8 @@ export const reinstateUser = mutation({
     await ctx.db.insert('moderationActions', {
       actorUserId: moderator._id,
       targetUserId: args.targetUserId,
-      // Reuse 'dismiss' as the audit verb for reinstatements — the action
-      // table's enum is intentionally minimal; the reason field carries
-      // the nuance.
-      action: 'dismiss',
-      reason: `reinstate: ${args.reason}`,
+      action: 'reinstate',
+      reason: args.reason,
       createdAt: now,
     });
   },

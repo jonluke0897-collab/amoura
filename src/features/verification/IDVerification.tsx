@@ -81,6 +81,23 @@ export function IDVerification() {
     }
   }, [working, status]);
 
+  // Timeout fallback: if the Persona webhook never arrives (network
+  // partition, Persona outage, mis-configured webhook URL), don't
+  // strand the user on "Waiting for result…" indefinitely. After 60s
+  // we flip back to idle with a retry-prompt error. Persona's typical
+  // resolve time is sub-30s; 60s is generous enough that legitimate
+  // slow paths complete first.
+  useEffect(() => {
+    if (working !== 'awaitingWebhook') return;
+    const timeout = setTimeout(() => {
+      setWorking('idle');
+      setError(
+        'Verification is taking longer than expected. Please try again in a moment.',
+      );
+    }, 60_000);
+    return () => clearTimeout(timeout);
+  }, [working]);
+
   // The in-app browser doesn't tell us "approved vs rejected" directly —
   // the webhook is the source of truth. After the browser session
   // closes, we wait briefly for the webhook to fire and the status

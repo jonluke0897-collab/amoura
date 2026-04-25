@@ -101,6 +101,7 @@ a brief window).
 ## Lambda code (Node.js 20.x reference)
 
 ```js
+import crypto from 'crypto';
 import { RekognitionClient, CompareFacesCommand, DetectFacesCommand } from '@aws-sdk/client-rekognition';
 
 const rekog = new RekognitionClient({});
@@ -109,7 +110,17 @@ const SHARED_TOKEN = process.env.AMOURA_SHARED_TOKEN;
 export const handler = async (event) => {
   const auth = event.headers?.authorization ?? event.headers?.Authorization ?? '';
   const expected = `Bearer ${SHARED_TOKEN}`;
-  if (auth !== expected) return { statusCode: 401, body: 'unauthorized' };
+  // Timing-safe comparison so a malicious caller can't infer the token
+  // length (or bytes) from response timing. timingSafeEqual requires
+  // equal-length buffers; bail early when the lengths differ.
+  const authBuf = Buffer.from(auth);
+  const expectedBuf = Buffer.from(expected);
+  if (
+    authBuf.length !== expectedBuf.length ||
+    !crypto.timingSafeEqual(authBuf, expectedBuf)
+  ) {
+    return { statusCode: 401, body: 'unauthorized' };
+  }
 
   let body;
   try { body = JSON.parse(event.body ?? '{}'); }
@@ -120,10 +131,27 @@ export const handler = async (event) => {
     return { statusCode: 400, body: 'missing selfieUrl or profilePhotoUrl' };
   }
 
-  const [selfieBytes, refBytes] = await Promise.all([
-    fetch(selfieUrl).then((r) => r.arrayBuffer()).then((a) => new Uint8Array(a)),
-    fetch(profilePhotoUrl).then((r) => r.arrayBuffer()).then((a) => new Uint8Array(a)),
-  ]);
+  // Fetch each image with explicit response.ok checks so a token-expired
+  // or 404 response surfaces as a 502 instead of silently feeding empty
+  // bytes to Rekognition (which would return faceCount=0 and look like
+  // a "no face detected" rejection).
+  const fetchImage = async (url, label) => {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch ${label}: HTTP ${res.status}`);
+    }
+    return new Uint8Array(await res.arrayBuffer());
+  };
+  let selfieBytes, refBytes;
+  try {
+    [selfieBytes, refBytes] = await Promise.all([
+      fetchImage(selfieUrl, 'selfie'),
+      fetchImage(profilePhotoUrl, 'profilePhoto'),
+    ]);
+  } catch (err) {
+    console.error('[lambda] image fetch failed', err);
+    return { statusCode: 502, body: err.message };
+  }
 
   // Detect faces in the selfie first to get faceCount cheaply. If 0 or
   // >1 we short-circuit and skip CompareFaces.

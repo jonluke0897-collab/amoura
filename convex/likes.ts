@@ -100,10 +100,19 @@ export const send = mutation({
       }
     }
 
-    // Dedupe: one pending like per (sender → recipient). If the sender has
-    // already liked this profile and is still waiting for a response,
-    // update the existing like rather than insert a second row. This keeps
-    // the recipient's inbox from spamming if the sender taps send twice.
+    // Lifetime: pending rows expire after LIKE_TTL_MS (7 days), but the
+    // expiration cron is deferred so a row's `status` stays 'pending'
+    // even past expiresAt. Treat status='pending' AND expiresAt > now as
+    // the only "live" state. Without this, a 7-day-old like would block a
+    // fresh one, auto-create a stale match, or be actionable from cached
+    // UI. Lazy-transition the status on read where it's a mutation
+    // context (here in send + in respond), so the data converges.
+    const now = Date.now();
+
+    // Dedupe: one pending like per (sender → recipient). If the sender
+    // has already liked this profile and is still waiting for a response,
+    // block a duplicate. Expired prior likes do not block — they're as
+    // good as not-there.
     const existingFromSender = await ctx.db
       .query('likes')
       .withIndex('by_from_user', (q) => q.eq('fromUserId', sender._id))
@@ -115,7 +124,13 @@ export const send = mutation({
       )
       .first();
     if (existingFromSender) {
-      throw new Error('You already have a pending like on this profile');
+      if (existingFromSender.expiresAt > now) {
+        throw new Error('You already have a pending like on this profile');
+      }
+      // Lazy transition: prior pending row has expired silently — flip it
+      // so it stops appearing in any inbox query and free up the dedupe
+      // slot for the new like.
+      await ctx.db.patch(existingFromSender._id, { status: 'expired' });
     }
 
     // Rate limit. Subscription lookup is cheap (single by_user index); keep
@@ -127,15 +142,23 @@ export const send = mutation({
 
     // Reciprocal check: did the recipient already like the sender? If so
     // we match atomically instead of leaving the sender's like pending.
-    const reciprocal = await ctx.db
+    // Expired reciprocals don't count — same lazy-transition rule as above.
+    const reciprocalCandidate = await ctx.db
       .query('likes')
       .withIndex('by_to_user_status', (q) =>
         q.eq('toUserId', sender._id).eq('status', 'pending'),
       )
       .filter((q) => q.eq(q.field('fromUserId'), args.toUserId))
       .first();
+    let reciprocal: Doc<'likes'> | null = null;
+    if (reciprocalCandidate) {
+      if (reciprocalCandidate.expiresAt > now) {
+        reciprocal = reciprocalCandidate;
+      } else {
+        await ctx.db.patch(reciprocalCandidate._id, { status: 'expired' });
+      }
+    }
 
-    const now = Date.now();
     const likeId = await ctx.db.insert('likes', {
       fromUserId: sender._id,
       toUserId: args.toUserId,
@@ -197,30 +220,46 @@ export const listInbound = query({
   handler: async (ctx, args) => {
     const { user } = await requireUserAndProfile(ctx);
     const now = Date.now();
+    const numItems = args.paginationOpts.numItems;
 
-    const paged = await ctx.db
-      .query('likes')
-      .withIndex('by_to_user_status', (q) =>
-        q.eq('toUserId', user._id).eq('status', 'pending'),
-      )
-      .order('desc')
-      .paginate(args.paginationOpts);
+    // Skip-forward pagination: resolveInboundLike drops expired / blocked
+    // / inactive senders, so a naive single .paginate() can return an
+    // empty page with isDone=false while older valid likes sit hidden.
+    // Walk the cursor forward in fixed-size batches until we have
+    // numItems live rows or exhaust the underlying query. Same shape as
+    // matches.listMine.
+    const page: InboundLikeItem[] = [];
+    let cursor: string | null = args.paginationOpts.cursor;
+    let isDone = false;
+    let continueCursor = '';
+    while (page.length < numItems && !isDone) {
+      const remaining = numItems - page.length;
+      // Over-fetch a little to amortize the round-trip when the dropout
+      // rate is non-trivial (blocks, expirations). 2x is a heuristic
+      // that's right for typical densities; worst case we just paginate
+      // again in the next loop iteration.
+      const batch = await ctx.db
+        .query('likes')
+        .withIndex('by_to_user_status', (q) =>
+          q.eq('toUserId', user._id).eq('status', 'pending'),
+        )
+        .order('desc')
+        .paginate({ ...args.paginationOpts, cursor, numItems: remaining * 2 });
+      const resolved = await Promise.all(
+        batch.page.map((like) =>
+          resolveInboundLike(ctx, user._id, like, now),
+        ),
+      );
+      for (const row of resolved) {
+        if (row) page.push(row);
+        if (page.length >= numItems) break;
+      }
+      cursor = batch.continueCursor;
+      continueCursor = batch.continueCursor;
+      isDone = batch.isDone;
+    }
 
-    // Resolve each row in parallel. Per-row work is independent (sender
-    // doc, block check, profile, photo URL, target description), and
-    // Convex queries batch underlying storage calls well. At 10 rows
-    // this cuts the visible "open likes tab" latency roughly in half
-    // vs. the original sequential loop.
-    const maybePage = await Promise.all(
-      paged.page.map((like) => resolveInboundLike(ctx, user._id, like, now)),
-    );
-    const page = maybePage.filter((x): x is InboundLikeItem => x !== null);
-
-    return {
-      page,
-      isDone: paged.isDone,
-      continueCursor: paged.continueCursor,
-    };
+    return { page, isDone, continueCursor };
   },
 });
 
@@ -363,6 +402,13 @@ export const respond = mutation({
     if (!like) throw new Error('Like not found');
     if (like.toUserId !== user._id) throw new Error('Not your like');
     if (like.status !== 'pending') return { matchId: like.matchId ?? null };
+    // Lazy-transition expired pending rows. Stops a 7-day-old like from
+    // being acted on via cached UI (the inbox already filters expired
+    // out, but a stale push notification could still link to one).
+    if (like.expiresAt <= Date.now()) {
+      await ctx.db.patch(like._id, { status: 'expired' });
+      return { matchId: null as Id<'matches'> | null };
+    }
 
     if (args.action === 'pass') {
       await ctx.db.patch(like._id, { status: 'passed' });

@@ -120,27 +120,41 @@ export function ProfileView({
       >
         {hero && (
           <View className="relative">
-            <PhotoCarousel
-              photos={[hero]}
-              aspectRatio={4 / 5}
-              onPhotoTap={() => {
+            {/* Wrap with our own Pressable (rather than passing onPhotoTap
+                to the carousel) so we can set selection-aware accessibility
+                state. Mirrors the body-photo treatment below; without it,
+                screen-reader users hear "image button" with no selected
+                indicator while sighted users see the plum ring. */}
+            <Pressable
+              onPress={() => {
                 if (selectionActive) {
                   onSelectTarget?.({ type: 'photo', id: hero._id });
                 } else {
                   setFullScreenIndex(0);
                 }
               }}
-            />
+              accessibilityRole={selectionActive ? 'button' : 'imagebutton'}
+              accessibilityLabel={
+                selectionActive
+                  ? isPhotoSelected(hero._id)
+                    ? 'Selected photo for like'
+                    : 'Select this photo'
+                  : 'View photo full screen'
+              }
+              accessibilityState={
+                selectionActive
+                  ? { selected: isPhotoSelected(hero._id) }
+                  : undefined
+              }
+            >
+              <PhotoCarousel photos={[hero]} aspectRatio={4 / 5} />
+            </Pressable>
             {hero.isVerified && (
               <View className="absolute top-4 right-4">
                 <VerificationBadge status="verified" />
               </View>
             )}
             {selectionActive && isPhotoSelected(hero._id) && (
-              // A plum border overlay — the PhotoCarousel owns the image
-              // layout, so layering a pointer-events-none overlay on top is
-              // the cheapest way to signal selection without re-rendering
-              // the carousel with border props.
               <View
                 pointerEvents="none"
                 className="absolute inset-0 border-4 border-plum-600 rounded-md"
@@ -265,7 +279,10 @@ export function ProfileView({
                         })
                     : undefined
                 }
-                selected={isPromptSelected(item.item._id)}
+                // Gate visual selected state on selectionActive too —
+                // otherwise a stale selectedTarget from a previous render
+                // could leak a heart fill into a non-selection view.
+                selected={selectionActive && isPromptSelected(item.item._id)}
               />
             ),
           )}

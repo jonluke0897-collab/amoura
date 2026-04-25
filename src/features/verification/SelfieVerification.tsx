@@ -66,6 +66,12 @@ export function SelfieVerification() {
   const track = useTrack();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  // Synchronous re-entry guard. setStep is async, so a fast double-tap
+  // on "Take selfie" could otherwise spawn two parallel
+  // capture+upload+startPhoto chains — wasted Lambda calls plus
+  // duplicate verifications rows. The ref flips synchronously in the
+  // handler body so the second tap returns early.
+  const captureInFlightRef = useRef(false);
   const [pose, setPose] = useState(
     () => POSE_PROMPTS[Math.floor(Math.random() * POSE_PROMPTS.length)],
   );
@@ -119,7 +125,9 @@ export function SelfieVerification() {
   // staged "Almost there..." message if we see slow Lambda starts on
   // the dev build.
   async function captureAndVerify(): Promise<void> {
+    if (captureInFlightRef.current) return;
     if (!cameraRef.current) return;
+    captureInFlightRef.current = true;
     setStep({ kind: 'submitting' });
     track(AnalyticsEvents.VERIFICATION_STARTED, { type: 'photo' });
     try {
@@ -178,6 +186,8 @@ export function SelfieVerification() {
         reason: 'config',
       });
       setStep({ kind: 'rejected', reason: 'config' });
+    } finally {
+      captureInFlightRef.current = false;
     }
   }
 

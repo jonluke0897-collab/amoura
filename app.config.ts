@@ -17,6 +17,16 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: 'com.amoura.app',
     supportsTablet: false,
+    // Single NSCameraUsageDescription that covers both flows. iOS only
+    // supports one camera-permission string per app — when both
+    // expo-image-picker and expo-camera plugins set their own
+    // `cameraPermission`, the last plugin's string wins silently. Owning
+    // the key here means the merged copy can't drift, and the plugin
+    // configs below intentionally drop their per-plugin overrides.
+    infoPlist: {
+      NSCameraUsageDescription:
+        'Amoura uses the camera to take new profile photos and to capture quick verification selfies. Photos are only uploaded when you choose to share them; selfies are deleted right after we check them.',
+    },
   },
   android: {
     package: 'com.amoura.app',
@@ -37,20 +47,19 @@ const config: ExpoConfig = {
       {
         photosPermission:
           'Amoura needs access to your photos so you can share your best self — only the ones you pick are uploaded.',
-        cameraPermission:
-          'Amoura uses the camera when you want to take a new photo for your profile.',
+        // cameraPermission intentionally omitted — the merged
+        // NSCameraUsageDescription lives in ios.infoPlist above so the
+        // two camera-using plugins can't fight over the same key.
       },
     ],
     [
       'expo-camera',
       {
-        // Phase 5 Wave 3: photo verification (TASK-061). Live selfie capture
-        // matched against the user's most recent profile photo via AWS
-        // Rekognition. Permission copy intentionally specific so it doesn't
-        // duplicate the expo-image-picker camera prompt — different intents,
-        // different sentences.
-        cameraPermission:
-          'Amoura uses the camera to take a quick selfie for verification — to confirm you’re you. The photo is checked against your profile photo and not shown to anyone else.',
+        // Same: cameraPermission intentionally omitted, see the
+        // NSCameraUsageDescription on ios.infoPlist. We still configure
+        // the rest of the plugin (mic disabled — verification is photo-
+        // only — and Android audio recording off) because those map to
+        // separate AndroidManifest entries.
         microphonePermission: false,
         recordAudioAndroid: false,
       },

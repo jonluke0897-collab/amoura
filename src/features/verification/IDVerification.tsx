@@ -48,13 +48,21 @@ export function IDVerification() {
   // so the second invocation sees the guard immediately.
   const startInFlightRef = useRef(false);
   const dismissInFlightRef = useRef(false);
-  // Snapshot of status.idLatestAt (createdAt of the newest id
-  // verifications row) at the moment we entered awaitingWebhook. The
-  // watcher detects "a new resolution row landed" by comparing this
-  // marker — using status.id alone would fail for back-to-back
-  // rejections (both attempts read as 'rejected', no observable
-  // change), leaving the user stuck waiting forever.
-  const statusBeforeAttemptRef = useRef<number | null>(null);
+  // Client-side timestamp captured immediately before opening the
+  // Persona browser session. The watcher detects "a new resolution
+  // row landed" by checking status.idLatestAt > attemptStartedAtRef.
+  //
+  // Why a client Date.now() baseline instead of snapshotting
+  // status.idLatestAt: a slow status load (or a user who taps Verify
+  // before status resolves) would leave us snapshotting null, and
+  // any subsequent status load that returns a prior verifications
+  // row (idLatestAt: number) would falsely satisfy `!== null` and
+  // exit awaitingWebhook against a stale row. A timestamp baseline
+  // tolerates the loading race because every server-stamped
+  // createdAt for a fresh row is strictly greater than this snapshot.
+  // Clock skew between client and server is usually <1s, well within
+  // the resolution we need.
+  const attemptStartedAtRef = useRef<number>(0);
 
   useEffect(() => {
     // `track` is a memoized callback that becomes a no-op when PostHog
@@ -66,17 +74,20 @@ export function IDVerification() {
   }, [track]);
 
   // Watcher: while awaitingWebhook, flip back to idle once a new
-  // verifications row has landed (idLatestAt advanced). The screen's
-  // existing isApproved branch then renders the success panel;
-  // rejected lands the user back on the prompt for a retry. Comparing
-  // by createdAt rather than status enum is what makes this work for
-  // consecutive rejections (both reads are 'rejected', but the
-  // timestamp moves forward on each new row).
+  // verifications row has landed (idLatestAt is later than our
+  // attempt-started snapshot). The screen's existing isApproved
+  // branch then renders the success panel; rejected lands the user
+  // back on the prompt for a retry. Comparing by createdAt rather
+  // than status enum is what makes this work for consecutive
+  // rejections (both reads are 'rejected', but the timestamp moves
+  // forward on each new row).
   useEffect(() => {
     if (working !== 'awaitingWebhook') return;
     if (!status) return;
-    const before = statusBeforeAttemptRef.current;
-    if (status.idLatestAt !== before) {
+    if (
+      status.idLatestAt !== null &&
+      status.idLatestAt > attemptStartedAtRef.current
+    ) {
       setWorking('idle');
     }
   }, [working, status]);
@@ -119,15 +130,15 @@ export function IDVerification() {
     try {
       const { url } = await startId();
       track(AnalyticsEvents.VERIFICATION_STARTED, { type: 'id' });
-      // Snapshot idLatestAt BEFORE opening the browser. Persona can
-      // finalize the inquiry and fire the webhook while the browser
-      // session is still open — by the time openAuthSessionAsync
-      // resolves, status.idLatestAt may already reflect the new row.
-      // Snapshotting after that point would capture the already-
-      // advanced value and the watcher would never observe a change,
-      // stranding the user on "Waiting for result…" until the 60s
-      // timeout fires.
-      statusBeforeAttemptRef.current = status?.idLatestAt ?? null;
+      // Snapshot the attempt-started timestamp BEFORE opening the
+      // browser. Persona can finalize the inquiry and fire the
+      // webhook while the browser session is still open — by the
+      // time openAuthSessionAsync resolves, status.idLatestAt may
+      // already reflect the new row. Capturing the timestamp before
+      // launch ensures the watcher's `idLatestAt > attemptStartedAt`
+      // comparison correctly detects any row created after this
+      // moment, including ones that landed mid-session.
+      attemptStartedAtRef.current = Date.now();
       setWorking('inFlight');
       // openAuthSessionAsync gives us iOS SFAuthenticationSession +
       // Android Custom Tabs treatment, with the deep-link redirect

@@ -215,7 +215,14 @@ export function SelfieVerification() {
             )
           : { uri: photo.uri };
 
-      const uploadUrl = await generateUploadUrl();
+      // Convex mutations can hang indefinitely on a flaky connection
+      // (no built-in client timeout). Wrapping in raceWithTimeout
+      // mirrors the protection on the fetch + action calls below.
+      const uploadUrl = await raceWithTimeout(
+        generateUploadUrl(),
+        FETCH_TIMEOUT_MS,
+        'generateSelfieUploadUrl',
+      );
       const blobResponse = await fetchWithTimeout(
         resized.uri,
         { method: 'GET' },

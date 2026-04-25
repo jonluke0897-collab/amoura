@@ -46,6 +46,30 @@ const PERSONA_API_BASE_PROD = 'https://api.withpersona.com/api/v1';
 // PERSONA_ENV var anyway so the runbook is unambiguous and analytics can
 // distinguish.
 
+// External-fetch deadlines. Both Persona inquiry creation and the
+// Rekognition Lambda call are bounded so a stalled upstream can't hang
+// the action indefinitely. The Lambda timeout is intentionally shorter
+// than the client's VERIFY_TIMEOUT_MS (45s) so a server-side late
+// completion can't race with a client-initiated retry: by the time the
+// client gives up, this side has already aborted and won't try to
+// double-write the verifications row.
+const PERSONA_FETCH_TIMEOUT_MS = 20_000;
+const REKOGNITION_FETCH_TIMEOUT_MS = 30_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 type PersonaInquiryResponse = {
   data?: {
     id?: string;
@@ -86,24 +110,39 @@ export const startId = action({
     if (!identity) throw new Error('Not authenticated');
     const referenceId = identity.subject;
 
-    const response = await fetch(`${PERSONA_API_BASE_PROD}/inquiries`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'Persona-Version': '2023-01-05',
-      },
-      body: JSON.stringify({
-        data: {
-          attributes: {
-            'inquiry-template-id': templateId,
-            'reference-id': referenceId,
-            'redirect-uri': redirectUri,
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(
+        `${PERSONA_API_BASE_PROD}/inquiries`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            'Persona-Version': '2023-01-05',
           },
+          body: JSON.stringify({
+            data: {
+              attributes: {
+                'inquiry-template-id': templateId,
+                'reference-id': referenceId,
+                'redirect-uri': redirectUri,
+              },
+            },
+          }),
         },
-      }),
-    });
+        PERSONA_FETCH_TIMEOUT_MS,
+      );
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.warn('[verificationActions.startId] Persona POST timed out');
+        throw new Error(
+          'ID verification timed out. Please try again in a moment.',
+        );
+      }
+      throw e;
+    }
     if (!response.ok) {
       const text = await response.text().catch(() => '<no body>');
       console.warn(`[verificationActions.startId] Persona POST failed: ${response.status} ${text}`);
@@ -125,6 +164,31 @@ type RekognitionResult = {
   livenessConfirmed: boolean;
   faceCount: number;
 };
+
+/**
+ * Runtime guard for the Lambda's response shape. We can't trust the
+ * upstream — a stale Lambda deploy, a corrupted env, or an entirely
+ * different service mistakenly pointed at by REKOGNITION_LAMBDA_URL
+ * would otherwise feed undefined fields to the outcome branching and
+ * silently land "no-face" rejections on every legitimate selfie.
+ * faceCount is the only required-and-meaningful field on the
+ * non-success path; similarity matters only when faceCount === 1.
+ */
+function isRekognitionResult(value: unknown): value is RekognitionResult {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  if (typeof v.faceCount !== 'number' || !Number.isFinite(v.faceCount)) return false;
+  if (typeof v.livenessConfirmed !== 'boolean') return false;
+  // similarity is allowed to be omitted when faceCount !== 1, but if
+  // present it must be a finite number.
+  if (
+    v.similarity !== undefined &&
+    (typeof v.similarity !== 'number' || !Number.isFinite(v.similarity))
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Compare the just-captured selfie against the user's most recent profile
@@ -189,26 +253,51 @@ export const startPhoto = action({
 
     let result: RekognitionResult;
     try {
-      const response = await fetch(lambdaUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${lambdaToken}`,
-        },
-        body: JSON.stringify({
-          selfieUrl,
-          profilePhotoUrl: ref.profilePhotoUrl,
-        }),
-      });
+      let response: Response;
+      try {
+        response = await fetchWithTimeout(
+          lambdaUrl,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${lambdaToken}`,
+            },
+            body: JSON.stringify({
+              selfieUrl,
+              profilePhotoUrl: ref.profilePhotoUrl,
+            }),
+          },
+          REKOGNITION_FETCH_TIMEOUT_MS,
+        );
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
+          console.warn(
+            '[verificationActions.startPhoto] Lambda POST timed out',
+          );
+          return { status: 'rejected', reason: 'config' };
+        }
+        throw e;
+      }
       if (!response.ok) {
         const text = await response.text().catch(() => '<no body>');
         console.warn(
           `[verificationActions.startPhoto] Lambda POST failed: ${response.status} ${text}`,
         );
-        await ctx.storage.delete(args.selfieStorageId).catch(() => {});
         return { status: 'rejected', reason: 'config' };
       }
-      result = (await response.json()) as RekognitionResult;
+      const parsed: unknown = await response.json().catch(() => null);
+      if (!isRekognitionResult(parsed)) {
+        // Malformed response — treat as a config error so the user
+        // sees the friendly "verification is taking a beat" copy
+        // instead of a confusing "no face detected" rejection.
+        console.warn(
+          '[verificationActions.startPhoto] Lambda returned malformed response',
+          parsed,
+        );
+        return { status: 'rejected', reason: 'config' };
+      }
+      result = parsed;
     } finally {
       // Delete the selfie blob whether or not the Lambda call succeeded.
       // This catch guards against a missing-blob race (action retried).

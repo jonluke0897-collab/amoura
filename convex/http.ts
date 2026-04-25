@@ -147,43 +147,68 @@ http.route({
       return new Response('Missing Persona-Signature header', { status: 400 });
     }
 
-    // Persona-Signature: t=1684868400,v1=abcdef... (comma-separated kv)
-    // We accept either order and ignore unrecognised keys. Both t and v1
-    // are required: t bounds the replay window, v1 is the HMAC.
-    const parts = signatureHeader.split(',').map((p) => p.trim());
-    let v1: string | undefined;
-    let t: string | undefined;
-    for (const part of parts) {
-      const [k, value] = part.split('=', 2);
-      if (k === 'v1') v1 = value;
-      else if (k === 't') t = value;
-    }
-    if (!v1 || !t) {
-      return new Response('Persona-Signature missing required components', { status: 400 });
-    }
-
-    // ±300s replay window. Persona stamps `t` on send; a request older
-    // than five minutes is either a delayed retry (already processed —
-    // applyPersonaResult is idempotent on inquiryId) or a captured-and-
-    // replayed signature. Either way we don't want to act on it.
-    const tNumber = Number(t);
-    if (!Number.isFinite(tNumber)) {
-      return new Response('Persona-Signature t is not numeric', { status: 400 });
-    }
-    const nowSec = Math.floor(Date.now() / 1000);
-    if (Math.abs(nowSec - tNumber) > 300) {
-      return new Response('Persona-Signature outside replay window', { status: 401 });
+    // Persona supports multiple signature sets in one header,
+    // whitespace-separated, so secret rotation can sign with both the
+    // old and new secrets during the window:
+    //
+    //   Persona-Signature: t=1684868400,v1=abcdef... t=1684868400,v1=fedcba...
+    //
+    // Each set is comma-separated kv pairs; we accept the request if
+    // any one set verifies. Within a set, both t and v1 are required.
+    const sets = signatureHeader
+      .split(/\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (sets.length === 0) {
+      return new Response('Persona-Signature is empty', { status: 400 });
     }
 
     const body = await req.text();
-    // Sign over `${t}.${body}` — Stripe/GitHub/Slack convention that
-    // Persona follows. Including the timestamp in the signed payload is
-    // what makes the replay window meaningful: an attacker who captures
-    // a valid (header, body) pair can't shift `t` to bypass the window
-    // without invalidating the signature.
-    const expected = await hmacSha256Hex(secret, `${t}.${body}`);
-    if (!timingSafeStringEqual(v1, expected)) {
-      return new Response('Invalid signature', { status: 401 });
+    const nowSec = Math.floor(Date.now() / 1000);
+    let verified = false;
+    let lastError = 'Invalid signature';
+    for (const set of sets) {
+      let v1: string | undefined;
+      let t: string | undefined;
+      for (const part of set.split(',').map((p) => p.trim())) {
+        const [k, value] = part.split('=', 2);
+        if (k === 'v1') v1 = value;
+        else if (k === 't') t = value;
+      }
+      if (!v1 || !t) {
+        lastError = 'Persona-Signature missing required components';
+        continue;
+      }
+      const tNumber = Number(t);
+      if (!Number.isFinite(tNumber)) {
+        lastError = 'Persona-Signature t is not numeric';
+        continue;
+      }
+      // ±300s replay window. Persona stamps `t` on send; a request
+      // older than five minutes is either a delayed retry (already
+      // processed — applyPersonaResult is idempotent on inquiryId) or
+      // a captured-and-replayed signature. Either way we don't want
+      // to act on it.
+      if (Math.abs(nowSec - tNumber) > 300) {
+        lastError = 'Persona-Signature outside replay window';
+        continue;
+      }
+      // Sign over `${t}.${body}` — Stripe/GitHub/Slack convention
+      // Persona follows. Including the timestamp in the signed payload
+      // is what makes the replay window meaningful: an attacker with a
+      // captured (header, body) pair can't shift `t` to bypass the
+      // window without invalidating the signature.
+      const expected = await hmacSha256Hex(secret, `${t}.${body}`);
+      if (timingSafeStringEqual(v1, expected)) {
+        verified = true;
+        break;
+      }
+      lastError = 'Invalid signature';
+    }
+    if (!verified) {
+      return new Response(lastError, {
+        status: lastError === 'Invalid signature' ? 401 : 400,
+      });
     }
 
     let event: PersonaInquiryEvent;

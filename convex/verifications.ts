@@ -117,11 +117,20 @@ export const recordIdDismiss = mutation({
     const patch: { idVerifyDismissCount: number; idVerifyRequiredAt?: number } = {
       idVerifyDismissCount: next,
     };
-    if (next > ID_VERIFY_REQUIRED_AFTER_DISMISSALS) {
+    // Plan: "dismissible twice then required on 3rd open". After the 2nd
+    // dismissal (next === 2), set idVerifyRequiredAt so the 3rd time the
+    // user lands on the verify-id screen the Cancel button is hidden.
+    // `>=` not `>`: the previous `>` would have given the user 3 free
+    // dismissals before lockout (4th open required), which is one more
+    // than the spec.
+    if (next >= ID_VERIFY_REQUIRED_AFTER_DISMISSALS) {
       patch.idVerifyRequiredAt = Date.now();
     }
     await ctx.db.patch(user._id, patch);
-    return { dismissCount: next, isRequired: next > ID_VERIFY_REQUIRED_AFTER_DISMISSALS };
+    return {
+      dismissCount: next,
+      isRequired: next >= ID_VERIFY_REQUIRED_AFTER_DISMISSALS,
+    };
   },
 });
 

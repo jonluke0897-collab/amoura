@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +39,13 @@ export function IDVerification() {
 
   const [working, setWorking] = useState<'idle' | 'starting' | 'inFlight'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Synchronous re-entry guards. The disabled prop on the Button is a
+  // soft barrier — React state updates are async, so two taps in the
+  // same animation frame can both pass the disabled check before
+  // setWorking lands. The refs flip synchronously in the handler body
+  // so the second invocation sees the guard immediately.
+  const startInFlightRef = useRef(false);
+  const dismissInFlightRef = useRef(false);
 
   useEffect(() => {
     track(AnalyticsEvents.VERIFICATION_PROMPT_SHOWN, { type: 'id' });
@@ -59,6 +66,8 @@ export function IDVerification() {
   const dismissable = status !== undefined && !status.idVerifyRequiredAt;
 
   async function handleStart(): Promise<void> {
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
     setWorking('starting');
     setError(null);
     try {
@@ -95,10 +104,14 @@ export function IDVerification() {
           : 'Could not start verification. Try again in a moment.',
       );
       setWorking('idle');
+    } finally {
+      startInFlightRef.current = false;
     }
   }
 
   async function handleNotNow(): Promise<void> {
+    if (dismissInFlightRef.current) return;
+    dismissInFlightRef.current = true;
     track(AnalyticsEvents.VERIFICATION_DISMISSED, { type: 'id' });
     try {
       await recordDismiss();
@@ -106,6 +119,8 @@ export function IDVerification() {
       // Recording the dismiss is best-effort. If it fails, the user
       // gets back to the app and the next sign-in will surface the
       // prompt again — no harm.
+    } finally {
+      dismissInFlightRef.current = false;
     }
     router.back();
   }

@@ -148,19 +148,40 @@ http.route({
     }
 
     // Persona-Signature: t=1684868400,v1=abcdef... (comma-separated kv)
-    // We accept either order and ignore unrecognised keys.
+    // We accept either order and ignore unrecognised keys. Both t and v1
+    // are required: t bounds the replay window, v1 is the HMAC.
     const parts = signatureHeader.split(',').map((p) => p.trim());
     let v1: string | undefined;
+    let t: string | undefined;
     for (const part of parts) {
       const [k, value] = part.split('=', 2);
       if (k === 'v1') v1 = value;
+      else if (k === 't') t = value;
     }
-    if (!v1) {
-      return new Response('Persona-Signature missing v1 component', { status: 400 });
+    if (!v1 || !t) {
+      return new Response('Persona-Signature missing required components', { status: 400 });
+    }
+
+    // ±300s replay window. Persona stamps `t` on send; a request older
+    // than five minutes is either a delayed retry (already processed —
+    // applyPersonaResult is idempotent on inquiryId) or a captured-and-
+    // replayed signature. Either way we don't want to act on it.
+    const tNumber = Number(t);
+    if (!Number.isFinite(tNumber)) {
+      return new Response('Persona-Signature t is not numeric', { status: 400 });
+    }
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSec - tNumber) > 300) {
+      return new Response('Persona-Signature outside replay window', { status: 401 });
     }
 
     const body = await req.text();
-    const expected = await hmacSha256Hex(secret, body);
+    // Sign over `${t}.${body}` — Stripe/GitHub/Slack convention that
+    // Persona follows. Including the timestamp in the signed payload is
+    // what makes the replay window meaningful: an attacker who captures
+    // a valid (header, body) pair can't shift `t` to bypass the window
+    // without invalidating the signature.
+    const expected = await hmacSha256Hex(secret, `${t}.${body}`);
     if (!timingSafeStringEqual(v1, expected)) {
       return new Response('Invalid signature', { status: 401 });
     }

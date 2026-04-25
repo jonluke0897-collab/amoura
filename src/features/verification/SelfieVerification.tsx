@@ -66,9 +66,26 @@ export function SelfieVerification() {
   const track = useTrack();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-  const [pose] = useState(
+  const [pose, setPose] = useState(
     () => POSE_PROMPTS[Math.floor(Math.random() * POSE_PROMPTS.length)],
   );
+
+  function returnToCapture() {
+    // Roll a fresh pose on retry. Reusing the same prompt across retries
+    // makes the anti-spoofing rationale moot — a user with a printed
+    // photo could just use the previously-known pose direction. Random
+    // selection is biased to "not the same as last time" to avoid
+    // hitting the same prompt twice when N=4.
+    setPose((prev) => {
+      if (POSE_PROMPTS.length === 1) return prev;
+      let next = prev;
+      while (next === prev) {
+        next = POSE_PROMPTS[Math.floor(Math.random() * POSE_PROMPTS.length)];
+      }
+      return next;
+    });
+    setStep({ kind: 'capture' });
+  }
   const [step, setStep] = useState<
     | { kind: 'capture' }
     | { kind: 'submitting' }
@@ -226,7 +243,7 @@ export function SelfieVerification() {
         heading={copy.heading}
         body={copy.body}
         ctaLabel="Try again"
-        onCta={() => setStep({ kind: 'capture' })}
+        onCta={returnToCapture}
         secondary={{ label: 'Cancel', onPress: () => router.back() }}
       />
     );

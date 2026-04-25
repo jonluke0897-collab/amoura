@@ -240,7 +240,7 @@ export function IDVerification() {
             onPress={handleNotNow}
             disabled={working !== 'idle'}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel="Postpone ID verification"
             accessibilityState={{ disabled: working !== 'idle' }}
             hitSlop={12}
             className={`h-10 w-10 items-center justify-center -ml-2 ${working !== 'idle' ? 'opacity-50' : ''}`}

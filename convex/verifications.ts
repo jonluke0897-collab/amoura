@@ -47,8 +47,15 @@ type VerificationStatus =
 type StatusResult = {
   photo: VerificationStatus | null;
   photoRejectedReason: string | null;
+  photoLatestAt: number | null;
   id: VerificationStatus | null;
   idRejectedReason: string | null;
+  // createdAt of the latest verifications row of each type. The client uses
+  // these as a per-attempt marker — `id` alone can't distinguish a fresh
+  // rejection from the previous-attempt's stale rejection (both render as
+  // 'rejected'), so the IDVerification awaitingWebhook watcher tracks a
+  // change in idLatestAt to know when a new resolution row has landed.
+  idLatestAt: number | null;
   // UX state for the dismiss-twice-then-required gate (TASK-060).
   idVerifyDismissCount: number;
   idVerifyRequiredAt: number | null;
@@ -74,18 +81,25 @@ export const status = query({
       .collect();
     // Group by type, pick the first (newest by desc order). A user with
     // a rejected then approved photo attempt sees `approved` here.
-    let photo: { status: VerificationStatus; rejectedReason: string | null } | null = null;
-    let id: { status: VerificationStatus; rejectedReason: string | null } | null = null;
+    type Slot = {
+      status: VerificationStatus;
+      rejectedReason: string | null;
+      createdAt: number;
+    };
+    let photo: Slot | null = null;
+    let id: Slot | null = null;
     for (const row of all) {
       if (row.type === 'photo' && !photo) {
         photo = {
           status: row.status,
           rejectedReason: row.rejectedReason ?? null,
+          createdAt: row.createdAt,
         };
       } else if (row.type === 'id' && !id) {
         id = {
           status: row.status,
           rejectedReason: row.rejectedReason ?? null,
+          createdAt: row.createdAt,
         };
       }
       if (photo && id) break;
@@ -93,8 +107,10 @@ export const status = query({
     return {
       photo: photo?.status ?? null,
       photoRejectedReason: photo?.rejectedReason ?? null,
+      photoLatestAt: photo?.createdAt ?? null,
       id: id?.status ?? null,
       idRejectedReason: id?.rejectedReason ?? null,
+      idLatestAt: id?.createdAt ?? null,
       idVerifyDismissCount: user.idVerifyDismissCount ?? 0,
       idVerifyRequiredAt: user.idVerifyRequiredAt ?? null,
     };

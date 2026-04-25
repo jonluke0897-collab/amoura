@@ -82,10 +82,12 @@ export function LikeWithCommentModal({
     setSubmitting(true);
     setError(null);
     try {
+      // The server's discriminated `target` validator wants {type, id}
+      // bundled. LikeTarget is already the matching union, so forward
+      // it directly.
       const result = await sendLike({
         toUserId,
-        targetType: target.type,
-        targetId: target.id,
+        target,
         comment: trimmed,
       });
       // Critical success path first — once the like is in Convex we MUST

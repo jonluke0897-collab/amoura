@@ -41,8 +41,15 @@ const LIKE_TTL_MS = 7 * DAY_MS; // Matches schema's expiresAt semantics.
 export const send = mutation({
   args: {
     toUserId: v.id('users'),
-    targetType: v.union(v.literal('prompt'), v.literal('photo')),
-    targetId: v.union(v.id('profilePrompts'), v.id('photos')),
+    // Discriminated union ties targetType to its matching ID type. The
+    // previous flat (targetType, targetId) shape let a client claim
+    // `targetType: 'prompt', targetId: <photos_id>` and the validator
+    // would accept it — runtime owner-check still rejected, but the
+    // failure mode was a content error rather than a schema error.
+    target: v.union(
+      v.object({ type: v.literal('prompt'), id: v.id('profilePrompts') }),
+      v.object({ type: v.literal('photo'), id: v.id('photos') }),
+    ),
     comment: v.string(),
   },
   handler: async (ctx, args) => {
@@ -88,13 +95,13 @@ export const send = mutation({
     // recipient. Prevents a client from liking photo X on profile B while
     // claiming X belongs to profile A — schema IDs are opaque and clients
     // can construct them from anywhere, so the owner check happens here.
-    if (args.targetType === 'prompt') {
-      const prompt = await ctx.db.get(args.targetId as Id<'profilePrompts'>);
+    if (args.target.type === 'prompt') {
+      const prompt = await ctx.db.get(args.target.id);
       if (!prompt || prompt.userId !== args.toUserId) {
         throw new Error('Target prompt does not belong to this profile');
       }
     } else {
-      const photo = await ctx.db.get(args.targetId as Id<'photos'>);
+      const photo = await ctx.db.get(args.target.id);
       if (!photo || photo.userId !== args.toUserId) {
         throw new Error('Target photo does not belong to this profile');
       }
@@ -162,8 +169,8 @@ export const send = mutation({
     const likeId = await ctx.db.insert('likes', {
       fromUserId: sender._id,
       toUserId: args.toUserId,
-      targetType: args.targetType,
-      targetId: args.targetId,
+      targetType: args.target.type,
+      targetId: args.target.id,
       comment: trimmedComment,
       status: reciprocal ? 'matched' : 'pending',
       createdAt: now,
@@ -331,32 +338,42 @@ async function resolveTargetDescription(
  * historical count if we ever want one. Cheap because it operates on an
  * index range without fetching sender data.
  */
+// Cap how far we'll scan for the banner count. Beyond this we display
+// "100+" and nudge to upgrade — the exact number doesn't matter once a
+// user has triple-digit likes. Bound is what protects this query from
+// becoming an O(N) hot-path scan on popular accounts: at the cap the
+// query does at most 100 sender + block lookups, regardless of how many
+// pending rows the user has accumulated.
+const COUNT_INBOUND_CAP = 100;
+
 export const countInbound = query({
   handler: async (ctx) => {
     const { user } = await requireUserAndProfile(ctx);
     const now = Date.now();
-    const pending = await ctx.db
+    let live = 0;
+    let scanned = 0;
+    let isCapped = false;
+    // Stream the index range and stop early once we've found CAP live
+    // rows. Skip-counting (rather than .collect() then filter) is what
+    // keeps the worst case bounded — a user with 5,000 unread pending
+    // likes still pays just `CAP` lookups.
+    for await (const like of ctx.db
       .query('likes')
       .withIndex('by_to_user_status', (q) =>
         q.eq('toUserId', user._id).eq('status', 'pending'),
-      )
-      .collect();
-    // Apply the same visibility rules as listInbound — otherwise the
-    // free-tier "X people liked you" banner advertises likes the user
-    // would never see in the inbox (sender deactivated, blocked either
-    // direction, or expired). Per-row block + sender check is one extra
-    // round trip apiece but pending counts are bounded (likes have a
-    // 7-day TTL so worst case is ~daily-cap × 7 rows).
-    const checks = await Promise.all(
-      pending.map(async (like) => {
-        if (like.expiresAt <= now) return false;
-        const sender = await ctx.db.get(like.fromUserId);
-        if (!sender || sender.accountStatus !== 'active') return false;
-        if (await isBlockedBetween(ctx, user._id, like.fromUserId)) return false;
-        return true;
-      }),
-    );
-    return { pending: checks.filter(Boolean).length };
+      )) {
+      scanned += 1;
+      if (like.expiresAt <= now) continue;
+      const sender = await ctx.db.get(like.fromUserId);
+      if (!sender || sender.accountStatus !== 'active') continue;
+      if (await isBlockedBetween(ctx, user._id, like.fromUserId)) continue;
+      live += 1;
+      if (live >= COUNT_INBOUND_CAP) {
+        isCapped = true;
+        break;
+      }
+    }
+    return { pending: live, isCapped, scanned };
   },
 });
 

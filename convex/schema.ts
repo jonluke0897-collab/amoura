@@ -306,11 +306,13 @@ export default defineSchema({
   // mutations called from the Convex dashboard's Run Function panel and by
   // the FR-023 cron's auto-suspensions.
   //
-  // `actorUserId` is a string (not `Id<'users'>`) so 'system-cron' and other
-  // sentinel actors can coexist with real moderator IDs without polluting
-  // the users table.
+  // `actorUserId` is a union of `Id<'users'>` (real moderator) and the
+  // `'system-cron'` sentinel. Narrowing from a free-form string keeps
+  // referential integrity for the moderator case while still letting the
+  // FR-023 cron's auto-suspension rows live in the same audit table. New
+  // sentinel actors (future automation) get added here.
   moderationActions: defineTable({
-    actorUserId: v.string(),
+    actorUserId: v.union(v.id('users'), v.literal('system-cron')),
     targetUserId: v.id('users'),
     action: v.union(
       v.literal('warn'),

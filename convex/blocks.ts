@@ -12,6 +12,7 @@
  * point. From their perspective the other person simply disappears.
  */
 import { v } from 'convex/values';
+import { paginationOptsValidator } from 'convex/server';
 import { mutation, query } from './_generated/server';
 import { requireUserAndProfile } from './lib/currentUser';
 
@@ -84,6 +85,12 @@ export const block = mutation({
     // matching the convention in likes.send / likes.respond when an old
     // pending like is superseded) is the cleaner audit verb than 'passed'
     // (user-driven decline).
+    //
+    // The inbound branch uses by_to_user_status (toUserId=me, status=pending)
+    // rather than by_from_user — that's the narrower index for our use
+    // case, since we only care about pending likes hitting the caller's
+    // inbox. Otherwise a high-activity target's full outbound history
+    // would be scanned just to find the one row addressed to me.
     const [outboundPending, inboundPending] = await Promise.all([
       ctx.db
         .query('likes')
@@ -97,14 +104,11 @@ export const block = mutation({
         .collect(),
       ctx.db
         .query('likes')
-        .withIndex('by_from_user', (q) =>
-          q.eq('fromUserId', args.targetUserId),
+        .withIndex('by_to_user_status', (q) =>
+          q.eq('toUserId', user._id).eq('status', 'pending'),
         )
         .filter((q) =>
-          q.and(
-            q.eq(q.field('toUserId'), user._id),
-            q.eq(q.field('status'), 'pending'),
-          ),
+          q.eq(q.field('fromUserId'), args.targetUserId),
         )
         .collect(),
     ]);
@@ -149,25 +153,29 @@ type BlockedUserRow = {
 /**
  * List the blocks the caller initiated (not blocks they're a target of).
  * Powers the Settings → Blocked Users screen so the user can unblock.
- * Returns up to 200 rows — anyone with more blocks than that has bigger
- * problems than scrolling.
+ *
+ * Paginated via Convex's `paginationOptsValidator`. The previous .take(200)
+ * cap silently truncated older blocks once a user accumulated more than
+ * 200, which would have hidden some unblock controls forever. Pagination
+ * lets the screen load on demand and keeps every block accessible.
  *
  * Per-row enrichment (user → profile → first photo → photo URL) runs in
- * parallel across rows via Promise.all. Within a single row the user→
+ * parallel across the page via Promise.all. Within a single row the user→
  * profile→photo chain stays sequential because each step depends on the
- * previous, but at 200 rows the cross-row parallelism is what matters.
+ * previous, but cross-row parallelism is what matters at page-size scale.
  */
 export const list = query({
-  handler: async (ctx): Promise<BlockedUserRow[]> => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
     const { user } = await requireUserAndProfile(ctx);
-    const rows = await ctx.db
+    const paged = await ctx.db
       .query('blocks')
       .withIndex('by_blocker', (q) => q.eq('blockerId', user._id))
       .order('desc')
-      .take(200);
+      .paginate(args.paginationOpts);
 
     const enriched = await Promise.all(
-      rows.map(async (block): Promise<BlockedUserRow | null> => {
+      paged.page.map(async (block): Promise<BlockedUserRow | null> => {
         const blockedUser = await ctx.db.get(block.blockedUserId);
         if (!blockedUser) return null;
         const profile = await ctx.db
@@ -196,6 +204,10 @@ export const list = query({
         };
       }),
     );
-    return enriched.filter((row): row is BlockedUserRow => row !== null);
+    return {
+      page: enriched.filter((row): row is BlockedUserRow => row !== null),
+      isDone: paged.isDone,
+      continueCursor: paged.continueCursor,
+    };
   },
 });

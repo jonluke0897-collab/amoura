@@ -19,9 +19,31 @@
  * no self-promotion endpoint.
  */
 import { v } from 'convex/values';
-import type { Doc } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { mutation } from './_generated/server';
 import type { MutationCtx } from './_generated/server';
+
+/**
+ * Validate that a report exists and its `reportedUserId` matches the
+ * expected target. Returns the report doc on success. Used by warn/
+ * suspend/ban before they patch the report — without this, a moderator
+ * who passes a wrong reportId could close someone else's open report
+ * with the current target's reason text and unrelate the audit chain.
+ */
+async function loadAndAssertReportTarget(
+  ctx: MutationCtx,
+  reportId: Id<'reports'>,
+  expectedTargetId: Id<'users'>,
+): Promise<Doc<'reports'>> {
+  const report = await ctx.db.get(reportId);
+  if (!report) throw new Error('Related report not found.');
+  if (report.reportedUserId !== expectedTargetId) {
+    throw new Error(
+      'Related report does not target the user being moderated.',
+    );
+  }
+  return report;
+}
 
 async function requireModerator(ctx: MutationCtx): Promise<Doc<'users'>> {
   const identity = await ctx.auth.getUserIdentity();
@@ -33,6 +55,17 @@ async function requireModerator(ctx: MutationCtx): Promise<Doc<'users'>> {
   if (!user) throw new Error('User not found');
   if (user.role !== 'moderator') {
     throw new Error('Moderator access required.');
+  }
+  // A moderator whose own account has been suspended/banned/deleted shouldn't
+  // be able to keep acting. Mirrors the gate in requireUserAndProfile so a
+  // single state flip on the actor immediately stops moderation traffic.
+  // Paused stays allowed — pause is user-initiated and reversible.
+  if (
+    user.accountStatus === 'suspended' ||
+    user.accountStatus === 'banned' ||
+    user.accountStatus === 'deleted'
+  ) {
+    throw new Error('Moderator account is not active.');
   }
   return user;
 }
@@ -88,6 +121,13 @@ export const warnUser = mutation({
     const moderator = await requireModerator(ctx);
     const target = await ctx.db.get(args.targetUserId);
     if (!target) throw new Error('Target user not found');
+    if (args.relatedReportId) {
+      await loadAndAssertReportTarget(
+        ctx,
+        args.relatedReportId,
+        args.targetUserId,
+      );
+    }
     const now = Date.now();
     await ctx.db.insert('moderationActions', {
       actorUserId: moderator._id,
@@ -123,6 +163,13 @@ export const suspendUser = mutation({
     const moderator = await requireModerator(ctx);
     const target = await ctx.db.get(args.targetUserId);
     if (!target) throw new Error('Target user not found');
+    if (args.relatedReportId) {
+      await loadAndAssertReportTarget(
+        ctx,
+        args.relatedReportId,
+        args.targetUserId,
+      );
+    }
     const now = Date.now();
     await ctx.db.patch(args.targetUserId, { accountStatus: 'suspended' });
     await ctx.db.insert('moderationActions', {
@@ -159,6 +206,13 @@ export const banUser = mutation({
     const moderator = await requireModerator(ctx);
     const target = await ctx.db.get(args.targetUserId);
     if (!target) throw new Error('Target user not found');
+    if (args.relatedReportId) {
+      await loadAndAssertReportTarget(
+        ctx,
+        args.relatedReportId,
+        args.targetUserId,
+      );
+    }
     const now = Date.now();
     await ctx.db.patch(args.targetUserId, { accountStatus: 'banned' });
     await ctx.db.insert('moderationActions', {

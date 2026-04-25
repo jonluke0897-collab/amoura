@@ -23,12 +23,17 @@ export default function ProfileTab() {
   const markOnboardingComplete = useMutation(api.profiles.markOnboardingComplete);
   const insets = useSafeAreaInsets();
 
-  // Migration fallback: users who reached the tabs under old code with photos
-  // but no prompts have onboardingComplete=false. Fire the idempotent marker
-  // so their bit flips the first time they land here. markOnboardingComplete
-  // is no-op if already true or if the user doesn't yet meet the gate.
+  // Migration fallback for two pre-existing stale states:
+  //   1. Pre-prompts era: onboardingComplete=false despite all prereqs met.
+  //   2. Pre-Phase-3 era: onboardingComplete=true but profile.isVisible=false
+  //      because Phase 3 introduced the visibility flip and didn't backfill
+  //      historical accounts. Without this branch, those users can browse but
+  //      stay invisible to everyone else's feed (Phase 4 magic-moment break).
+  // markOnboardingComplete is idempotent and a no-op if the gate isn't met.
   useEffect(() => {
-    if (me && me.user && !me.user.onboardingComplete) {
+    if (!me?.user || !me.profile) return;
+    const needsMigration = !me.user.onboardingComplete || !me.profile.isVisible;
+    if (needsMigration) {
       markOnboardingComplete().catch(() => {});
     }
   }, [me, markOnboardingComplete]);

@@ -54,3 +54,15 @@ yarn-error.*
 
 # Microsoft Office temp lock files
 ~$*
+
+# Secrets — never commit. We sometimes drop credential downloads in the
+# repo dir while wiring a service. Anyone with these can impersonate
+# Amoura against the corresponding provider.
+#   - Firebase service account JSON (FCM push, OneSignal Android setup)
+#   - Apple APNs auth key (.p8) for iOS push — also covered by *.p8 above
+#   - Generic service-account / private-key downloads
+Firebase Key/
+firebase-key/
+*-service-account*.json
+*firebase-adminsdk*.json
+AuthKey_*.p8

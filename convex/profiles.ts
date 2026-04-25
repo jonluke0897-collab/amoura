@@ -5,6 +5,8 @@ import type { Doc, Id } from './_generated/dataModel';
 import { GENDER_MODALITY, INTENTION, PLEDGE_TYPE, T4T_PREFERENCE } from './validators';
 import { requireUserAndProfile } from './lib/currentUser';
 import { canonicalizeCity } from './lib/canonicalizeCity';
+import { computeAge } from './lib/age';
+import { getBlockedUserIds } from './lib/blocks';
 
 type OnboardingStep =
   | 'identity'
@@ -23,7 +25,6 @@ const MIN_PHOTOS_FOR_COMPLETE = 2;
 // saved value down and Apply would silently narrow it.
 const MIN_AGE = 18;
 const MAX_AGE = 70;
-const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 
 const MIN_DISTANCE_KM = 5;
 const MAX_DISTANCE_KM = 100;
@@ -481,19 +482,33 @@ export const listFeed = query({
     const [ageMin, ageMax] =
       rawAgeMin <= rawAgeMax ? [rawAgeMin, rawAgeMax] : [rawAgeMax, rawAgeMin];
 
-    // Blocks both directions. Set keys are userId strings; Id<'users'> is a
-    // branded string so conversion is implicit.
-    const blockedIds = new Set<string>();
-    const blockedByMe = await ctx.db
-      .query('blocks')
-      .withIndex('by_blocker', (q) => q.eq('blockerId', viewer._id))
-      .collect();
-    for (const b of blockedByMe) blockedIds.add(b.blockedUserId);
-    const blockingMe = await ctx.db
-      .query('blocks')
-      .withIndex('by_blocked', (q) => q.eq('blockedUserId', viewer._id))
-      .collect();
-    for (const b of blockingMe) blockedIds.add(b.blockerId);
+    // Blocks both directions, plus active matches. Both produce the same
+    // "filter out this counterparty" effect; merge into one set so the
+    // per-row check stays a single Set.has lookup.
+    //
+    // Active matches: an existing chat would let the viewer like-with-
+    // comment a person they already match — confusing and would queue an
+    // orphan like. Once unmatched the row drops out (status='unmatched'),
+    // so re-discovery is allowed per TASK-057's "neither user can re-
+    // match without a new like" — they can like again, just not get a
+    // free new chat.
+    const skipIds = await getBlockedUserIds(ctx, viewer._id);
+    const [activeAsA, activeAsB] = await Promise.all([
+      ctx.db
+        .query('matches')
+        .withIndex('by_user_a_status', (q) =>
+          q.eq('userAId', viewer._id).eq('status', 'active'),
+        )
+        .collect(),
+      ctx.db
+        .query('matches')
+        .withIndex('by_user_b_status', (q) =>
+          q.eq('userBId', viewer._id).eq('status', 'active'),
+        )
+        .collect(),
+    ]);
+    for (const m of activeAsA) skipIds.add(m.userBId);
+    for (const m of activeAsB) skipIds.add(m.userAId);
 
     // `by_visible_city` is `[isVisible, city]` plus the implicit _creationTime
     // suffix, so .order('desc') gives newest-first pagination without an
@@ -511,7 +526,7 @@ export const listFeed = query({
     const now = Date.now();
     const page: FeedItem[] = [];
     for (const target of paged.page) {
-      if (blockedIds.has(target.userId)) continue;
+      if (skipIds.has(target.userId)) continue;
       // Viewer-side filter: viewer with t4t-only preference hides cis
       // candidates.
       if (t4tOnly && target.genderModality === 'cis') continue;
@@ -685,22 +700,4 @@ export const updatePreferences = mutation({
 function clampAge(value: number): number {
   if (!Number.isFinite(value)) return MIN_AGE;
   return Math.min(MAX_AGE, Math.max(MIN_AGE, Math.round(value)));
-}
-
-// Calendar-based age rather than (now - dob)/YEAR_MS. Dividing by a constant
-// year length is off by one around birthdays (leap years, early vs late in
-// the day) — a user could briefly show as 25 on their 26th birthday and get
-// filtered out by a feed gate set to 26+.
-function computeAge(dob: number | undefined, now: number = Date.now()): number | null {
-  if (dob === undefined || !Number.isFinite(dob)) return null;
-  const birth = new Date(dob);
-  const current = new Date(now);
-  let years = current.getUTCFullYear() - birth.getUTCFullYear();
-  const birthdayPassedThisYear =
-    current.getUTCMonth() > birth.getUTCMonth() ||
-    (current.getUTCMonth() === birth.getUTCMonth() &&
-      current.getUTCDate() >= birth.getUTCDate());
-  if (!birthdayPassedThisYear) years -= 1;
-  if (years < 0 || years > 150) return null;
-  return years;
 }

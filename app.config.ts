@@ -52,6 +52,18 @@ const config: ExpoConfig = {
           'Amoura uses your location only to detect your city. We store the city name — never your exact coordinates.',
       },
     ],
+    [
+      'onesignal-expo-plugin',
+      {
+        // 'development' wires the APNs sandbox cert path; 'production'
+        // switches to the APNs production cert. EAS release profiles set
+        // ONESIGNAL_MODE=production at build time; local dev defaults to
+        // sandbox. No other value is accepted.
+        mode: process.env.ONESIGNAL_MODE === 'production' ? 'production' : 'development',
+        // iOS dev team + iPhoneDeploymentTarget would go here once we have
+        // signing set up in EAS. Not required for Android dev builds.
+      },
+    ],
   ],
   extra: {
     eas: {
@@ -62,6 +74,7 @@ const config: ExpoConfig = {
     revenueCatIosKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY,
     revenueCatAndroidKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
     posthogKey: process.env.EXPO_PUBLIC_POSTHOG_KEY,
+    oneSignalAppId: process.env.EXPO_PUBLIC_ONESIGNAL_APP_ID,
   },
 };
 

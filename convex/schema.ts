@@ -129,6 +129,12 @@ export default defineSchema({
     userAId: v.id('users'),
     userBId: v.id('users'),
     initiatedByLikeId: v.id('likes'),
+    // Lifecycle: 'active' from creation. Flips to 'unmatched' when either
+    // party unmatches (rows are preserved for audit but hidden from both
+    // users' listMine). Phase 5 may add 'blocked' when the safety surface
+    // lands; for now, a block just creates a blocks row and relies on
+    // feed-level filtering.
+    status: v.union(v.literal('active'), v.literal('unmatched')),
     lastMessageAt: v.optional(v.number()),
     lastMessagePreview: v.optional(v.string()),
     lastMessageSenderId: v.optional(v.id('users')),
@@ -142,7 +148,14 @@ export default defineSchema({
     .index('by_user_b', ['userBId'])
     .index('by_users', ['userAId', 'userBId'])
     .index('by_user_a_activity', ['userAId', 'lastMessageAt'])
-    .index('by_user_b_activity', ['userBId', 'lastMessageAt']),
+    .index('by_user_b_activity', ['userBId', 'lastMessageAt'])
+    // Phase 4 browse-feed exclusion: per-call, we need every active match
+    // for the viewer so we can hide those counterparties from the feed.
+    // Compound index over (userId, status) keeps that lookup O(active
+    // matches) rather than O(total match history) as the user accumulates
+    // unmatched rows.
+    .index('by_user_a_status', ['userAId', 'status'])
+    .index('by_user_b_status', ['userBId', 'status']),
 
   messages: defineTable({
     matchId: v.id('matches'),

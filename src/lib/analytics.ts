@@ -20,6 +20,20 @@ export const AnalyticsEvents = {
   FILTERS_OPENED: 'filters_opened',
   FILTERS_APPLIED: 'filters_applied',
   FEED_SESSION_DURATION: 'feed_session_duration',
+  // Phase 4 — Likes, Matches, Messaging. The magic-moment funnel is:
+  //   feed_viewed → profile_detail_viewed → like_sent → match_created →
+  //   first_message_sent → conversation_has_5_messages
+  // Build this funnel manually in the PostHog dashboard once events are
+  // flowing end-to-end (TASK-058).
+  LIKE_SENT: 'like_sent',
+  LIKE_PASSED: 'like_passed',
+  LIKE_RESPONDED_MATCH: 'like_responded_match',
+  MATCH_CREATED: 'match_created',
+  CHAT_OPENED: 'chat_opened',
+  FIRST_MESSAGE_SENT: 'first_message_sent',
+  MESSAGE_SENT: 'message_sent',
+  CONVERSATION_DEPTH_5: 'conversation_has_5_messages',
+  UNMATCH: 'unmatch',
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

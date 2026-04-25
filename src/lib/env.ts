@@ -6,6 +6,7 @@ type Extra = {
   revenueCatIosKey?: string;
   revenueCatAndroidKey?: string;
   posthogKey?: string;
+  oneSignalAppId?: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
@@ -40,5 +41,11 @@ export const env = {
   },
   get posthogKey() {
     return read('EXPO_PUBLIC_POSTHOG_KEY', extra.posthogKey);
+  },
+  // Optional. When absent, NotificationProvider no-ops so the app boots for
+  // UI QA without push. Setting this requires a new EAS dev build — OneSignal
+  // is a native module.
+  get oneSignalAppId() {
+    return read('EXPO_PUBLIC_ONESIGNAL_APP_ID', extra.oneSignalAppId);
   },
 };

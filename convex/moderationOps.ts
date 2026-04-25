@@ -72,32 +72,6 @@ export const dismissReport = mutation({
 });
 
 /**
- * Mark a report as actioned without specifying which action — used when
- * the moderator has already taken a separate action (warn/suspend/ban)
- * via the dedicated mutation and just needs to close the open report.
- * Prefer the dedicated mutations below when possible since they bundle
- * the action with the report patch.
- */
-export const actionReport = mutation({
-  args: {
-    reportId: v.id('reports'),
-    notes: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const moderator = await requireModerator(ctx);
-    const report = await ctx.db.get(args.reportId);
-    if (!report) throw new Error('Report not found');
-    const now = Date.now();
-    await ctx.db.patch(args.reportId, {
-      status: 'actioned',
-      moderatorId: moderator._id,
-      moderatorNotes: args.notes,
-      resolvedAt: now,
-    });
-  },
-});
-
-/**
  * Issue a warning. Phase 5 records the action but does NOT dispatch a push
  * or in-app notification — Phase 6's admin UI is when warning delivery
  * becomes interactive. For now, the warning is moderator-internal: it

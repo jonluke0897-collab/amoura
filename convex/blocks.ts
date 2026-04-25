@@ -75,6 +75,45 @@ export const block = mutation({
       await ctx.db.patch(match._id, { status: 'unmatched' });
     }
 
+    // Retire any pending likes between the pair (both directions). Without
+    // this, a pending like in the recipient's inbox would survive the block
+    // — hidden by the inbox's isBlockedBetween filter while blocked, but
+    // resurrected as actionable on unblock. That bypasses the "neither
+    // user can re-match without a new like" rule and would let an
+    // unblock implicitly produce a match. Status='expired' (system-driven,
+    // matching the convention in likes.send / likes.respond when an old
+    // pending like is superseded) is the cleaner audit verb than 'passed'
+    // (user-driven decline).
+    const [outboundPending, inboundPending] = await Promise.all([
+      ctx.db
+        .query('likes')
+        .withIndex('by_from_user', (q) => q.eq('fromUserId', user._id))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field('toUserId'), args.targetUserId),
+            q.eq(q.field('status'), 'pending'),
+          ),
+        )
+        .collect(),
+      ctx.db
+        .query('likes')
+        .withIndex('by_from_user', (q) =>
+          q.eq('fromUserId', args.targetUserId),
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field('toUserId'), user._id),
+            q.eq(q.field('status'), 'pending'),
+          ),
+        )
+        .collect(),
+    ]);
+    await Promise.all(
+      [...outboundPending, ...inboundPending].map((like) =>
+        ctx.db.patch(like._id, { status: 'expired' }),
+      ),
+    );
+
     return { blockId, alreadyBlocked: false };
   },
 });

@@ -28,6 +28,13 @@ type MessageItem = {
  * keeps probes out of the ID space. Returns newest-first; the chat screen's
  * inverted FlatList then renders oldest at top visually.
  *
+ * Phase 5: read access mirrors the send-path availability gate. After a
+ * block or unmatch, neither party can read the thread with a cached
+ * matchId — the bidirectional invisibility guarantee from FR-020 covers
+ * read as well as write. Throws the same user-visible copy as send so the
+ * client can route both errors to the same "this conversation is no
+ * longer available" screen.
+ *
  * `isMine` is precomputed server-side because messageBubble's alignment
  * decision depends on comparing senderId to the viewer's userId, and we'd
  * rather the client not have to fetch `users.me` just to do that compare
@@ -44,6 +51,14 @@ export const listByMatch = query({
     if (!match) throw new Error('Match not found');
     if (match.userAId !== user._id && match.userBId !== user._id) {
       throw new Error('Not a participant');
+    }
+    if (match.status !== 'active') {
+      throw new Error('This conversation is no longer available.');
+    }
+    const counterpartyId =
+      match.userAId === user._id ? match.userBId : match.userAId;
+    if (await isBlockedBetween(ctx, user._id, counterpartyId)) {
+      throw new Error('This conversation is no longer available.');
     }
 
     const paged = await ctx.db
@@ -201,8 +216,14 @@ export const markRead = mutation({
     if (match.userAId !== user._id && match.userBId !== user._id) {
       throw new Error('Not a participant');
     }
-
+    // Same gate as listByMatch: a stale chat screen left open across an
+    // unmatch or block shouldn't keep mutating the match row on focus.
+    // Failing fast also prevents probing match availability via this call.
+    if (match.status !== 'active') return;
     const iAmUserA = match.userAId === user._id;
+    const counterpartyId = iAmUserA ? match.userBId : match.userAId;
+    if (await isBlockedBetween(ctx, user._id, counterpartyId)) return;
+
     const currentUnread = iAmUserA ? match.unreadCountA : match.unreadCountB;
     // No-op guard: if nothing's unread on our side, skip entirely. Every
     // write to `matches` re-runs every subscriber (Matches tab, the

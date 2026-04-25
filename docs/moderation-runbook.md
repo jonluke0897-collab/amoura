@@ -118,6 +118,29 @@ open the **Functions** panel, find `badActorScan.run`, and invoke with
 no args. The function returns `{ scanned, flagged, suspended }` so you
 can verify the scan saw the expected report volume.
 
+## Updating the moderation keyword list
+
+`convex/moderationKeywords.ts` ships in the public repo with placeholder
+values that match nothing real. The advisor-curated list never lives in
+source control. Procedure for the operator deploying production:
+
+1. Curate the list with the trans advisors. Keep it in a private,
+   non-indexed location (encrypted note, password manager, private gist).
+2. On a local checkout, replace the body of `MODERATION_KEYWORDS` with
+   the real list. **Do not commit this change.**
+3. Run `npx convex deploy` (or `npx convex dev` for dev deploys). The
+   deploy bundles the local file content; the production deployment now
+   has the real list while the repo still ships placeholders.
+4. Revert the local file (`git checkout convex/moderationKeywords.ts`)
+   so the working tree matches the repo.
+5. To update the list later, repeat: edit, deploy, revert.
+
+The runtime keyword set is whatever was bundled at the most recent
+deploy. Convex does not let functions read arbitrary files at runtime,
+so a private side-loaded JSON or env var would also work but adds
+parsing overhead on every cold start. The deploy-and-revert flow is
+simpler and the privacy properties are equivalent.
+
 ## Things NOT to do
 
 - **Do not auto-delete flagged messages.** The keyword detection layer

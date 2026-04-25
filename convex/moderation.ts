@@ -23,10 +23,6 @@ export type ModerationResult = {
   matchedKeyword?: string;
 };
 
-// Pre-lowercase the keyword list once at module load so the per-message scan
-// stays O(keywords * body) without allocating per call.
-const NORMALIZED_KEYWORDS = MODERATION_KEYWORDS.map((k) => k.toLowerCase());
-
 /**
  * Lowercase a body and collapse non-letter/non-digit/non-space runs to a
  * single space. This lets a contiguous word match survive punctuation,
@@ -41,6 +37,15 @@ function normalize(input: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// Run the keyword list through the same normalizer the bodies use, so a
+// curated keyword like "foo-bar" or "s.l.u.r" matches a body that's been
+// stripped of the same punctuation. Dedupe and drop empties — without
+// that, a stray comma in the keyword file could expand into an empty
+// padded match-string that flags every message.
+const NORMALIZED_KEYWORDS = Array.from(
+  new Set(MODERATION_KEYWORDS.map((k) => normalize(k)).filter((k) => k.length > 0)),
+);
 
 function scanForKeyword(body: string): string | null {
   const normalized = normalize(body);

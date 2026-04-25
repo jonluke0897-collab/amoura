@@ -554,15 +554,20 @@ export const listFeed = query({
 
       // Phase 5 TASK-062: verified-only filter. One indexed lookup per
       // candidate against the verifications table, gated by the toggle
-      // so the lookup is skipped entirely when the filter is off.
+      // so the lookup is skipped entirely when the filter is off. Filter
+      // by status='approved' inside the query — by_user_type is not a
+      // unique index, so a user with a rejected or pending row plus a
+      // separate approved row would otherwise false-negative if .first()
+      // returned the non-approved row.
       if (verifiedOnly) {
-        const photoVerify = await ctx.db
+        const approvedPhotoVerify = await ctx.db
           .query('verifications')
           .withIndex('by_user_type', (q) =>
             q.eq('userId', target.userId).eq('type', 'photo'),
           )
+          .filter((q) => q.eq(q.field('status'), 'approved'))
           .first();
-        if (!photoVerify || photoVerify.status !== 'approved') continue;
+        if (!approvedPhotoVerify) continue;
       }
 
       // Age filter is permissive: missing DOB passes through. Phase 2 didn't

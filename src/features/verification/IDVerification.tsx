@@ -81,6 +81,14 @@ export function IDVerification() {
   // than status enum is what makes this work for consecutive
   // rejections (both reads are 'rejected', but the timestamp moves
   // forward on each new row).
+  //
+  // Also the right place to fire VERIFICATION_APPROVED /
+  // VERIFICATION_REJECTED — the IDVerification result is webhook-
+  // driven (no synchronous return value to track on like
+  // SelfieVerification.startPhoto), so this transition is the
+  // moment we know the outcome. The early-return on working !==
+  // 'awaitingWebhook' + the immediate setWorking('idle') ensures
+  // each event fires exactly once per attempt.
   useEffect(() => {
     if (working !== 'awaitingWebhook') return;
     if (!status) return;
@@ -88,9 +96,14 @@ export function IDVerification() {
       status.idLatestAt !== null &&
       status.idLatestAt > attemptStartedAtRef.current
     ) {
+      if (status.id === 'approved') {
+        track(AnalyticsEvents.VERIFICATION_APPROVED, { type: 'id' });
+      } else if (status.id === 'rejected') {
+        track(AnalyticsEvents.VERIFICATION_REJECTED, { type: 'id' });
+      }
       setWorking('idle');
     }
-  }, [working, status]);
+  }, [working, status, track]);
 
   // Timeout fallback: if the Persona webhook never arrives (network
   // partition, Persona outage, mis-configured webhook URL), don't
@@ -187,9 +200,11 @@ export function IDVerification() {
       // Recording the dismiss is best-effort. If it fails, the user
       // gets back to the app and the next sign-in will surface the
       // prompt again — no harm.
-    } finally {
-      dismissInFlightRef.current = false;
     }
+    // Navigate away with the ref still set. Component unmounts on
+    // router.back(), so there's nothing to clear the ref for. Leaving
+    // it set closes the narrow window where a second tap could slip
+    // between the finally and the back-navigation.
     router.back();
   }
 
@@ -271,7 +286,7 @@ export function IDVerification() {
             working === 'starting'
               ? 'Opening…'
               : working === 'inFlight'
-                ? 'Continue verification'
+                ? 'Verification in progress…'
                 : working === 'awaitingWebhook'
                   ? 'Waiting for result…'
                   : 'Verify my ID'

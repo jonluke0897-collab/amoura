@@ -102,13 +102,12 @@ export const block = mutation({
     // pending like is superseded) is the cleaner audit verb than 'passed'
     // (user-driven decline).
     //
-    // Outbound uses by_from_to_status to bound the lookup to exactly the
-    // (sender, recipient, status) slice. Inbound uses by_to_user_status
-    // and filters fromUserId — by_from_to_status would also work for
-    // inbound but its leading column (fromUserId) doesn't fit the access
-    // pattern as cleanly when the caller is the recipient. Either way,
-    // both queries are now index-bounded rather than scanning anyone's
-    // full like history.
+    // Both directions use by_from_to_status with all three columns
+    // equality-bound — outbound = (me, target, pending), inbound =
+    // (target, me, pending). The index-only lookup avoids the in-memory
+    // filter pass that the inbound branch previously needed, and the two
+    // queries now have the same shape and cost regardless of how active
+    // either party is.
     const [outboundPending, inboundPending] = await Promise.all([
       ctx.db
         .query('likes')
@@ -121,11 +120,11 @@ export const block = mutation({
         .collect(),
       ctx.db
         .query('likes')
-        .withIndex('by_to_user_status', (q) =>
-          q.eq('toUserId', user._id).eq('status', 'pending'),
-        )
-        .filter((q) =>
-          q.eq(q.field('fromUserId'), args.targetUserId),
+        .withIndex('by_from_to_status', (q) =>
+          q
+            .eq('fromUserId', args.targetUserId)
+            .eq('toUserId', user._id)
+            .eq('status', 'pending'),
         )
         .collect(),
     ]);

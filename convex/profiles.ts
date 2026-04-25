@@ -428,8 +428,10 @@ export const getMinePreferences = query({
  * - Post-filtering happens in-memory over each ≤N-doc page, so the delivered
  *   page may be shorter than the requested `numItems`. Callers must continue
  *   paginating until `isDone`.
- * - `verifiedOnly` is accepted but ignored in Phase 3; Phase 5 TASK-062
- *   wires it to the verifications table.
+ * - `verifiedOnly` filters to candidates with an approved photo verification
+ *   row (`verifications` type='photo', status='approved'). Phase 6 will
+ *   gate this behind a paid-tier paywall; for now the filter applies for
+ *   anyone toggling it on. See Phase 5 TASK-062.
  */
 export const listFeed = query({
   args: {
@@ -467,6 +469,8 @@ export const listFeed = query({
 
     const t4tOnly =
       filters.t4tOnly ?? (viewerProfile.t4tPreference === 't4t-only');
+
+    const verifiedOnly = filters.verifiedOnly === true;
 
     // Empty arrays collapse to "no filter" — otherwise deselecting all
     // intentions in the FilterSheet would silently zero out the feed.
@@ -547,6 +551,24 @@ export const listFeed = query({
       const targetUser = await ctx.db.get(target.userId);
       if (!targetUser) continue;
       if (targetUser.accountStatus !== 'active') continue;
+
+      // Phase 5 TASK-062: verified-only filter. One indexed lookup per
+      // candidate against the verifications table, gated by the toggle
+      // so the lookup is skipped entirely when the filter is off. Filter
+      // by status='approved' inside the query — by_user_type is not a
+      // unique index, so a user with a rejected or pending row plus a
+      // separate approved row would otherwise false-negative if .first()
+      // returned the non-approved row.
+      if (verifiedOnly) {
+        const approvedPhotoVerify = await ctx.db
+          .query('verifications')
+          .withIndex('by_user_type', (q) =>
+            q.eq('userId', target.userId).eq('type', 'photo'),
+          )
+          .filter((q) => q.eq(q.field('status'), 'approved'))
+          .first();
+        if (!approvedPhotoVerify) continue;
+      }
 
       // Age filter is permissive: missing DOB passes through. Phase 2 didn't
       // collect DOB, so a strict filter would zero the feed for legacy users.

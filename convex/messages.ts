@@ -5,6 +5,7 @@ import { mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { requireUserAndProfile } from './lib/currentUser';
 import { checkAndIncrement, hasActiveSubscription } from './lib/rateLimit';
+import { isBlockedBetween } from './lib/blocks';
 import { checkMessage } from './moderation';
 
 const MIN_BODY_CHARS = 1;
@@ -27,6 +28,13 @@ type MessageItem = {
  * keeps probes out of the ID space. Returns newest-first; the chat screen's
  * inverted FlatList then renders oldest at top visually.
  *
+ * Phase 5: read access mirrors the send-path availability gate. After a
+ * block or unmatch, neither party can read the thread with a cached
+ * matchId — the bidirectional invisibility guarantee from FR-020 covers
+ * read as well as write. Throws the same user-visible copy as send so the
+ * client can route both errors to the same "this conversation is no
+ * longer available" screen.
+ *
  * `isMine` is precomputed server-side because messageBubble's alignment
  * decision depends on comparing senderId to the viewer's userId, and we'd
  * rather the client not have to fetch `users.me` just to do that compare
@@ -43,6 +51,14 @@ export const listByMatch = query({
     if (!match) throw new Error('Match not found');
     if (match.userAId !== user._id && match.userBId !== user._id) {
       throw new Error('Not a participant');
+    }
+    if (match.status !== 'active') {
+      throw new Error('This conversation is no longer available.');
+    }
+    const counterpartyId =
+      match.userAId === user._id ? match.userBId : match.userAId;
+    if (await isBlockedBetween(ctx, user._id, counterpartyId)) {
+      throw new Error('This conversation is no longer available.');
     }
 
     const paged = await ctx.db
@@ -101,11 +117,25 @@ export const send = mutation({
       throw new Error(`Message must be ${MAX_BODY_CHARS} characters or fewer`);
     }
 
-    // Moderation stub — flagged=false for all bodies until Phase 5.
-    const moderation = checkMessage(trimmed);
-    if (moderation.flagged) {
-      throw new Error(moderation.reason ?? 'Message did not pass moderation');
+    // Phase 5 TASK-064: block check parallels likes.send. Either party
+    // having blocked the other terminates the send. The match is supposed
+    // to flip to 'unmatched' on block (see convex/blocks.ts), but we keep
+    // the explicit check as defense-in-depth for any race where the match
+    // patch hasn't propagated yet.
+    const iAmUserA = match.userAId === user._id;
+    const recipientUserId = iAmUserA ? match.userBId : match.userAId;
+    if (await isBlockedBetween(ctx, user._id, recipientUserId)) {
+      throw new Error('This conversation is no longer available.');
     }
+
+    // Phase 5 TASK-066 keyword check. Unlike likes.send (which rejects
+    // flagged comments), messages are deliver-but-flag: the message
+    // persists with flagged=true and a moderationFlags audit row is
+    // written. Rationale: reclaimed in-community language inside an
+    // established thread should not be silently suppressed; a moderator
+    // reviews after the fact.
+    const moderation = checkMessage(trimmed);
+    const isFlagged = moderation.flagged;
 
     await checkAndIncrement(ctx, user._id, 'messages-daily', MESSAGES_PER_DAY);
 
@@ -115,8 +145,20 @@ export const send = mutation({
       senderId: user._id,
       body: trimmed,
       messageType: 'text',
+      flagged: isFlagged,
       createdAt: now,
     });
+
+    if (isFlagged) {
+      await ctx.db.insert('moderationFlags', {
+        userId: user._id,
+        flagType: 'flagged-keywords',
+        severity: 'medium',
+        details: `message:${messageId} keyword:${moderation.matchedKeyword ?? 'unknown'}`,
+        status: 'open',
+        createdAt: now,
+      });
+    }
 
     // Preview is truncated for the match-list row. Use grapheme-safe slice?
     // JS String.slice by UTF-16 code unit is fine for the truncation length
@@ -127,8 +169,6 @@ export const send = mutation({
         ? `${trimmed.slice(0, PREVIEW_CHARS - 1)}…`
         : trimmed;
 
-    const iAmUserA = match.userAId === user._id;
-    const recipientUserId = iAmUserA ? match.userBId : match.userAId;
     await ctx.db.patch(match._id, {
       lastMessageAt: now,
       lastMessagePreview: preview,
@@ -176,8 +216,14 @@ export const markRead = mutation({
     if (match.userAId !== user._id && match.userBId !== user._id) {
       throw new Error('Not a participant');
     }
-
+    // Same gate as listByMatch: a stale chat screen left open across an
+    // unmatch or block shouldn't keep mutating the match row on focus.
+    // Failing fast also prevents probing match availability via this call.
+    if (match.status !== 'active') return;
     const iAmUserA = match.userAId === user._id;
+    const counterpartyId = iAmUserA ? match.userBId : match.userAId;
+    if (await isBlockedBetween(ctx, user._id, counterpartyId)) return;
+
     const currentUnread = iAmUserA ? match.unreadCountA : match.unreadCountB;
     // No-op guard: if nothing's unread on our side, skip entirely. Every
     // write to `matches` re-runs every subscriber (Matches tab, the

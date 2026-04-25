@@ -24,6 +24,11 @@ export default defineSchema({
       v.literal('banned'),
       v.literal('deleted'),
     ),
+    // Moderator gate for the descoped Phase 5 dashboard flow (TASK-065).
+    // Absence = "user"; only set explicitly via `npx convex env` or direct
+    // dashboard write. Phase 6 will expose moderator management in the
+    // Next.js admin UI.
+    role: v.optional(v.union(v.literal('user'), v.literal('moderator'))),
     lastActiveAt: v.number(),
     createdAt: v.number(),
   })
@@ -123,6 +128,11 @@ export default defineSchema({
     .index('by_from_user', ['fromUserId'])
     .index('by_to_user', ['toUserId'])
     .index('by_to_user_status', ['toUserId', 'status'])
+    // Phase 5 TASK-064: blocks.block needs to retire pending likes between
+    // a specific (sender, recipient) pair. Without this index the outbound
+    // direction would scan the blocker's entire outbound history; the
+    // compound key bounds the lookup to the exact pair+status slice.
+    .index('by_from_to_status', ['fromUserId', 'toUserId', 'status'])
     .index('by_expires', ['expiresAt']),
 
   matches: defineTable({
@@ -168,6 +178,13 @@ export default defineSchema({
     ),
     photoStorageId: v.optional(v.id('_storage')),
     readAt: v.optional(v.number()),
+    // Phase 5 TASK-066: keyword moderation. `true` means a moderationFlags
+    // row also exists for this message and a moderator should review. The
+    // message is NOT auto-deleted — false positives on reclaimed language
+    // would silently harm trans users, so we deliver and surface to the
+    // moderator queue instead. Optional during the migration window;
+    // application code treats absence as `false`.
+    flagged: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index('by_match_created', ['matchId', 'createdAt'])
@@ -196,7 +213,11 @@ export default defineSchema({
       v.literal('actioned'),
       v.literal('dismissed'),
     ),
-    moderatorId: v.optional(v.string()),
+    // Phase 5 reports are only ever closed by a real moderator (system-cron
+    // doesn't touch reports — it writes flags/actions and suspends users
+    // directly). Typed as Id<'users'> instead of v.string() for referential
+    // integrity, mirroring the moderationActions.actorUserId narrowing.
+    moderatorId: v.optional(v.id('users')),
     moderatorNotes: v.optional(v.string()),
     resolvedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -204,6 +225,11 @@ export default defineSchema({
     .index('by_status', ['status'])
     .index('by_reported_user', ['reportedUserId'])
     .index('by_reporter', ['reporterId'])
+    // Phase 5 FR-023 bad-actor cron: range-scan reports per user within the
+    // last 7 days. The single-field by_reported_user can't bound the time
+    // window cheaply, so the compound index lets the cron stream straight to
+    // the relevant slice.
+    .index('by_reported_user_created', ['reportedUserId', 'createdAt'])
     .index('by_created', ['createdAt']),
 
   verifications: defineTable({
@@ -282,4 +308,33 @@ export default defineSchema({
     periodStart: v.number(),
   })
     .index('by_user_bucket', ['userId', 'bucket']),
+
+  // Phase 5 TASK-065 (descoped): audit log for every moderator and system
+  // action. Phase 6's Next.js admin UI will read from this table; for the
+  // launch window, the entries are written by `convex/moderationOps.ts`
+  // mutations called from the Convex dashboard's Run Function panel and by
+  // the FR-023 cron's auto-suspensions.
+  //
+  // `actorUserId` is a union of `Id<'users'>` (real moderator) and the
+  // `'system-cron'` sentinel. Narrowing from a free-form string keeps
+  // referential integrity for the moderator case while still letting the
+  // FR-023 cron's auto-suspension rows live in the same audit table. New
+  // sentinel actors (future automation) get added here.
+  moderationActions: defineTable({
+    actorUserId: v.union(v.id('users'), v.literal('system-cron')),
+    targetUserId: v.id('users'),
+    action: v.union(
+      v.literal('warn'),
+      v.literal('suspend'),
+      v.literal('ban'),
+      v.literal('dismiss'),
+      v.literal('auto-suspend'),
+      v.literal('reinstate'),
+    ),
+    reason: v.optional(v.string()),
+    relatedReportId: v.optional(v.id('reports')),
+    createdAt: v.number(),
+  })
+    .index('by_target', ['targetUserId'])
+    .index('by_created', ['createdAt']),
 });

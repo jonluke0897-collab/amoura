@@ -163,6 +163,17 @@ export const suspendUser = mutation({
     const moderator = await requireModerator(ctx);
     const target = await ctx.db.get(args.targetUserId);
     if (!target) throw new Error('Target user not found');
+    // Suspend is reversible-and-temporary; ban and delete are terminal.
+    // Patching a banned or deleted user back down to suspended would be
+    // a state-machine downgrade — use reinstateUser if the intent is to
+    // reverse the terminal state (and that path is intentionally
+    // narrower: it only allows suspended → active).
+    if (target.accountStatus === 'banned') {
+      throw new Error('Cannot suspend a banned account.');
+    }
+    if (target.accountStatus === 'deleted') {
+      throw new Error('Cannot suspend a deleted account.');
+    }
     if (args.relatedReportId) {
       await loadAndAssertReportTarget(
         ctx,

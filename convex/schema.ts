@@ -208,7 +208,11 @@ export default defineSchema({
       v.literal('actioned'),
       v.literal('dismissed'),
     ),
-    moderatorId: v.optional(v.string()),
+    // Phase 5 reports are only ever closed by a real moderator (system-cron
+    // doesn't touch reports — it writes flags/actions and suspends users
+    // directly). Typed as Id<'users'> instead of v.string() for referential
+    // integrity, mirroring the moderationActions.actorUserId narrowing.
+    moderatorId: v.optional(v.id('users')),
     moderatorNotes: v.optional(v.string()),
     resolvedAt: v.optional(v.number()),
     createdAt: v.number(),

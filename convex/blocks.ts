@@ -13,8 +13,29 @@
  */
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
+import type { Doc, Id } from './_generated/dataModel';
+import type { MutationCtx, QueryCtx } from './_generated/server';
 import { mutation, query } from './_generated/server';
 import { requireUserAndProfile } from './lib/currentUser';
+
+/**
+ * Locate an existing blocks row for a specific (blocker, blocked) pair via
+ * the `by_pair` index. Returns null when no such row exists. Used by
+ * `block` (idempotency check) and `unblock` (precondition lookup) so the
+ * lookup logic is one place to drift from.
+ */
+async function findBlockByPair(
+  ctx: QueryCtx | MutationCtx,
+  blockerId: Id<'users'>,
+  blockedUserId: Id<'users'>,
+): Promise<Doc<'blocks'> | null> {
+  return await ctx.db
+    .query('blocks')
+    .withIndex('by_pair', (q) =>
+      q.eq('blockerId', blockerId).eq('blockedUserId', blockedUserId),
+    )
+    .first();
+}
 
 export const block = mutation({
   args: {
@@ -36,12 +57,7 @@ export const block = mutation({
     // Idempotent: if a block already exists, return its id rather than
     // duplicating. The unique pair index isn't enforced at the schema layer
     // (Convex doesn't expose unique constraints), so we check first.
-    const existing = await ctx.db
-      .query('blocks')
-      .withIndex('by_pair', (q) =>
-        q.eq('blockerId', user._id).eq('blockedUserId', args.targetUserId),
-      )
-      .first();
+    const existing = await findBlockByPair(ctx, user._id, args.targetUserId);
     if (existing) {
       return { blockId: existing._id, alreadyBlocked: true };
     }
@@ -126,12 +142,7 @@ export const unblock = mutation({
   args: { targetUserId: v.id('users') },
   handler: async (ctx, args) => {
     const { user } = await requireUserAndProfile(ctx);
-    const existing = await ctx.db
-      .query('blocks')
-      .withIndex('by_pair', (q) =>
-        q.eq('blockerId', user._id).eq('blockedUserId', args.targetUserId),
-      )
-      .first();
+    const existing = await findBlockByPair(ctx, user._id, args.targetUserId);
     if (!existing) return { unblocked: false };
     await ctx.db.delete(existing._id);
     // Note: we deliberately do NOT auto-restore the unmatched match. The
@@ -145,7 +156,13 @@ export const unblock = mutation({
 type BlockedUserRow = {
   blockId: string;
   userId: string;
-  displayName: string;
+  // displayName / firstPhotoUrl can both be null for orphaned blocks where
+  // the blocked user's row was purged after the soft-delete window (per
+  // FR-029). Surfacing the row anyway lets the user unblock — without it,
+  // a purged target's blocks row would be invisible-yet-extant and the
+  // user couldn't act on it. UI renders a generic "Account no longer
+  // available" label when displayName is null.
+  displayName: string | null;
   firstPhotoUrl: string | null;
   blockedAt: number;
 };
@@ -174,10 +191,21 @@ export const list = query({
       .order('desc')
       .paginate(args.paginationOpts);
 
-    const enriched = await Promise.all(
-      paged.page.map(async (block): Promise<BlockedUserRow | null> => {
+    const enriched: BlockedUserRow[] = await Promise.all(
+      paged.page.map(async (block): Promise<BlockedUserRow> => {
         const blockedUser = await ctx.db.get(block.blockedUserId);
-        if (!blockedUser) return null;
+        if (!blockedUser) {
+          // User row was purged (FR-029 30-day soft-delete cleanup). Return
+          // an orphan-block placeholder so the unblock UI can still act on
+          // it; otherwise the block row is invisible-yet-extant.
+          return {
+            blockId: block._id,
+            userId: block.blockedUserId,
+            displayName: null,
+            firstPhotoUrl: null,
+            blockedAt: block.createdAt,
+          };
+        }
         const profile = await ctx.db
           .query('profiles')
           .withIndex('by_user', (q) => q.eq('userId', blockedUser._id))
@@ -205,7 +233,7 @@ export const list = query({
       }),
     );
     return {
-      page: enriched.filter((row): row is BlockedUserRow => row !== null),
+      page: enriched,
       isDone: paged.isDone,
       continueCursor: paged.continueCursor,
     };

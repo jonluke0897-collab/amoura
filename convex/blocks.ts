@@ -142,9 +142,20 @@ export const unblock = mutation({
   args: { targetUserId: v.id('users') },
   handler: async (ctx, args) => {
     const { user } = await requireUserAndProfile(ctx);
-    const existing = await findBlockByPair(ctx, user._id, args.targetUserId);
-    if (!existing) return { unblocked: false };
-    await ctx.db.delete(existing._id);
+    // Collect all rows for this pair, not just the first. The schema
+    // doesn't enforce uniqueness on by_pair (Convex doesn't expose unique
+    // constraints), so although the block() idempotency check should
+    // prevent duplicates, defense-in-depth says clean up every row here
+    // — otherwise an unblock could leave a stale duplicate that keeps the
+    // bidirectional invisibility guarantee active.
+    const rows = await ctx.db
+      .query('blocks')
+      .withIndex('by_pair', (q) =>
+        q.eq('blockerId', user._id).eq('blockedUserId', args.targetUserId),
+      )
+      .collect();
+    if (rows.length === 0) return { unblocked: false };
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
     // Note: we deliberately do NOT auto-restore the unmatched match. The
     // unmatch was a deliberate severance; if the pair want to chat again
     // they need a new like → match cycle. This matches TASK-057's

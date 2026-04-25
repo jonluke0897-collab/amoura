@@ -24,6 +24,54 @@ import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 const MAX_LONG_EDGE = 2048;
 const JPEG_QUALITY = 0.85;
 
+// Per-leg timeouts so a hung network call can't leave the UI stuck in
+// 'submitting' forever. Convex storage uploads are typically <2s on a
+// healthy connection; 30s gives generous headroom. Rekognition Lambda
+// includes a cold start (~1-3s) plus the CompareFaces call (~1s); 45s
+// allows for a slow cold start on a busy region without false-positive
+// timeouts on the median request.
+const FETCH_TIMEOUT_MS = 30_000;
+const UPLOAD_TIMEOUT_MS = 30_000;
+const VERIFY_TIMEOUT_MS = 45_000;
+
+/**
+ * Wraps a promise with a timeout. The original promise keeps running
+ * (we can't actually cancel an in-flight Convex action), but the UI
+ * stops waiting on it and moves to the rejection branch. The orphaned
+ * action will still complete server-side; idempotency on the
+ * verifications insert is what makes that safe.
+ */
+async function raceWithTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    // @ts-expect-error timeoutId is assigned synchronously inside the Promise constructor
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  ms: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // Random pose prompts per § 12 edge case "Photo Verification". The user is
 // given one prompt per attempt — stays simple and the variety is enough
 // to deter trivial spoofing with a static photo.
@@ -72,6 +120,11 @@ export function SelfieVerification() {
   // duplicate verifications rows. The ref flips synchronously in the
   // handler body so the second tap returns early.
   const captureInFlightRef = useRef(false);
+  // One-shot guard for the auto permission request. Without this, an
+  // Android user who taps Deny gets re-prompted on every render until
+  // canAskAgain flips to false — surfacing the OS modal in a tight
+  // loop. The ref ensures we ask exactly once per screen mount.
+  const hasAutoRequestedPermissionRef = useRef(false);
   const [pose, setPose] = useState(
     () => POSE_PROMPTS[Math.floor(Math.random() * POSE_PROMPTS.length)],
   );
@@ -112,11 +165,16 @@ export function SelfieVerification() {
 
   // Auto-request permission on mount. expo-camera renders a black
   // placeholder until granted; without the prompt the user sits looking
-  // at black until they figure out the OS settings.
+  // at black until they figure out the OS settings. The ref-gate makes
+  // it exactly one auto-request per mount — if the user denies, they
+  // can re-trigger via the explicit "Allow camera access" button below.
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) {
-      requestPermission();
-    }
+    if (hasAutoRequestedPermissionRef.current) return;
+    if (!permission) return;
+    if (permission.granted) return;
+    if (!permission.canAskAgain) return;
+    hasAutoRequestedPermissionRef.current = true;
+    requestPermission();
   }, [permission, requestPermission]);
 
   // The Rekognition action takes >1s on the first run (cold Lambda).
@@ -157,18 +215,32 @@ export function SelfieVerification() {
           : { uri: photo.uri };
 
       const uploadUrl = await generateUploadUrl();
-      const blob = await fetch(resized.uri).then((r) => r.blob());
-      const upload = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'image/jpeg' },
-        body: blob,
-      });
+      const blobResponse = await fetchWithTimeout(
+        resized.uri,
+        { method: 'GET' },
+        FETCH_TIMEOUT_MS,
+      );
+      if (!blobResponse.ok) throw new Error('Local file read failed');
+      const blob = await blobResponse.blob();
+      const upload = await fetchWithTimeout(
+        uploadUrl,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: blob,
+        },
+        UPLOAD_TIMEOUT_MS,
+      );
       if (!upload.ok) throw new Error('Upload failed');
       const { storageId } = (await upload.json()) as { storageId: string };
 
-      const result = await startPhoto({
-        selfieStorageId: storageId as Id<'_storage'>,
-      });
+      const result = await raceWithTimeout(
+        startPhoto({
+          selfieStorageId: storageId as Id<'_storage'>,
+        }),
+        VERIFY_TIMEOUT_MS,
+        'startPhoto',
+      );
       if (result.status === 'approved') {
         track(AnalyticsEvents.VERIFICATION_APPROVED, { type: 'photo' });
         setStep({ kind: 'approved' });

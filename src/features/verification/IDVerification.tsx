@@ -37,7 +37,9 @@ export function IDVerification() {
   const startId = useAction(api.verificationActions.startId);
   const recordDismiss = useMutation(api.verifications.recordIdDismiss);
 
-  const [working, setWorking] = useState<'idle' | 'starting' | 'inFlight'>('idle');
+  const [working, setWorking] = useState<
+    'idle' | 'starting' | 'inFlight' | 'awaitingWebhook'
+  >('idle');
   const [error, setError] = useState<string | null>(null);
   // Synchronous re-entry guards. The disabled prop on the Button is a
   // soft barrier — React state updates are async, so two taps in the
@@ -46,11 +48,30 @@ export function IDVerification() {
   // so the second invocation sees the guard immediately.
   const startInFlightRef = useRef(false);
   const dismissInFlightRef = useRef(false);
+  // Snapshot of status.id at the moment we entered awaitingWebhook so
+  // the watcher useEffect can detect the change (status was 'rejected'
+  // → flipped to 'approved' on retry, or null → 'rejected' on first
+  // attempt). Plain reference comparison on the latest status would
+  // fire immediately if the user already had a prior verification row.
+  const statusBeforeAttemptRef = useRef<string | null>(null);
 
   useEffect(() => {
     track(AnalyticsEvents.VERIFICATION_PROMPT_SHOWN, { type: 'id' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Watcher: while awaitingWebhook, flip back to idle once status.id
+  // has changed from the snapshot taken at handleStart's success path.
+  // The screen's existing isApproved branch then renders the success
+  // panel; rejected lands the user back on the prompt for a retry.
+  useEffect(() => {
+    if (working !== 'awaitingWebhook') return;
+    if (!status) return;
+    const before = statusBeforeAttemptRef.current;
+    if (status.id !== before) {
+      setWorking('idle');
+    }
+  }, [working, status]);
 
   // The in-app browser doesn't tell us "approved vs rejected" directly —
   // the webhook is the source of truth. After the browser session
@@ -93,9 +114,12 @@ export function IDVerification() {
         return;
       }
       // 'success' just means the redirect fired. The webhook is what
-      // actually updates state. The status query subscription will
-      // re-render when the row lands.
-      setWorking('idle');
+      // actually updates state. Stay in 'awaitingWebhook' until the
+      // status query reflects the new row — otherwise the user could
+      // re-tap the CTA between browser-close and webhook-land and
+      // spawn a duplicate Persona inquiry.
+      statusBeforeAttemptRef.current = status?.id ?? null;
+      setWorking('awaitingWebhook');
     } catch (e) {
       console.warn('[IDVerification] startId failed', e);
       setError(
@@ -147,7 +171,11 @@ export function IDVerification() {
       <View className="flex-row items-center mb-2">
         {dismissable && (
           <Pressable
-            onPress={() => router.back()}
+            // Chevron back goes through handleNotNow so the dismissal
+            // counts toward the gate. router.back() alone would let
+            // users tap-tap-tap the chevron forever without ever hitting
+            // the lockout, which defeats the dismissable-twice rule.
+            onPress={handleNotNow}
             accessibilityRole="button"
             accessibilityLabel="Back"
             hitSlop={12}
@@ -195,16 +223,17 @@ export function IDVerification() {
               ? 'Opening…'
               : working === 'inFlight'
                 ? 'Continue verification'
-                : 'Verify my ID'
+                : working === 'awaitingWebhook'
+                  ? 'Waiting for result…'
+                  : 'Verify my ID'
           }
           onPress={handleStart}
-          loading={working === 'starting'}
-          // Also block while a browser session is in flight. Without
-          // this, a rapid double-tap during the brief moment between
-          // openAuthSessionAsync resolving and our setState landing
-          // would fire a second startId(), spawning a duplicate Persona
-          // inquiry whose result we'd never reconcile.
-          disabled={working === 'starting' || working === 'inFlight'}
+          loading={working === 'starting' || working === 'awaitingWebhook'}
+          // Block while any non-idle state is in flight. The Button's
+          // disabled prop is a soft barrier (synchronous re-entry guard
+          // on startInFlightRef is the hard one); both belt and braces
+          // matter because React state updates are async.
+          disabled={working !== 'idle'}
         />
         {dismissable && (
           <View className="mt-3">

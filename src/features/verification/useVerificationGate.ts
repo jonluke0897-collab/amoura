@@ -42,10 +42,14 @@ export function useVerificationGate() {
   useEffect(() => {
     if (fired.current) return;
     if (!status) return;
-    if (status.id === 'approved') return;
-    // Show the prompt for users who haven't completed it. This will
-    // route into the verify-id screen, which itself decides whether
-    // the prompt is dismissable based on idVerifyRequiredAt.
+    // Only redirect when the user genuinely needs to start (or restart)
+    // verification. A pending status means an inquiry is mid-flight —
+    // they're either still in the Persona browser session or waiting on
+    // the webhook; routing them back to verify-id would either fight
+    // the in-flight session or look broken. Approved obviously needs
+    // no prompt.
+    const needsPrompt = status.id === null || status.id === 'rejected';
+    if (!needsPrompt) return;
     fired.current = true;
     router.push('/verify-id');
   }, [status, router]);

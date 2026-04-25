@@ -181,11 +181,21 @@ export function IDVerification() {
           }
           onPress={handleStart}
           loading={working === 'starting'}
-          disabled={working === 'starting'}
+          // Also block while a browser session is in flight. Without
+          // this, a rapid double-tap during the brief moment between
+          // openAuthSessionAsync resolving and our setState landing
+          // would fire a second startId(), spawning a duplicate Persona
+          // inquiry whose result we'd never reconcile.
+          disabled={working === 'starting' || working === 'inFlight'}
         />
         {dismissable && (
           <View className="mt-3">
-            <Button label="Not now" variant="ghost" onPress={handleNotNow} />
+            <Button
+              label="Not now"
+              variant="ghost"
+              onPress={handleNotNow}
+              disabled={working !== 'idle'}
+            />
           </View>
         )}
       </View>

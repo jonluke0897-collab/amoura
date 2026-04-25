@@ -12,6 +12,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useAction, useMutation } from 'convex/react';
 import { ChevronLeft } from 'lucide-react-native';
 import { api } from '~/convex/_generated/api';
+import type { Id } from '~/convex/_generated/dataModel';
 import { Button } from '~/src/components/ui/Button';
 import { Text } from '~/src/components/ui/Text';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
@@ -141,7 +142,7 @@ export function SelfieVerification() {
       const { storageId } = (await upload.json()) as { storageId: string };
 
       const result = await startPhoto({
-        selfieStorageId: storageId as never,
+        selfieStorageId: storageId as Id<'_storage'>,
       });
       if (result.status === 'approved') {
         track(AnalyticsEvents.VERIFICATION_APPROVED, { type: 'photo' });

@@ -186,9 +186,14 @@ http.route({
 
     // Persona statuses: 'completed' / 'approved' / 'declined' / 'failed' /
     // 'expired' / 'needs_review'. We collapse to approved | rejected for
-    // the verifications row; needs_review counts as rejected for now —
-    // a future phase can introduce a 'pending-review' status if the
-    // moderator surface needs it.
+    // the verifications row.
+    //
+    // `needs_review` is intentionally NOT terminal — Persona resolves it
+    // to a final status when their team or rules engine acts. Closing it
+    // here would write a 'rejected' row that flips back to 'approved' on
+    // the follow-up webhook, leaving stale data in the verifications
+    // table. We acknowledge with 200 (so Persona doesn't retry) and wait
+    // for the resolution event.
     const isApproved =
       eventName === 'inquiry.approved' || personaStatus === 'approved';
     const isTerminalRejection =

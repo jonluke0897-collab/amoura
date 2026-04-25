@@ -412,6 +412,7 @@ export const getMinePreferences = query({
       maxDistanceKm: profile.maxDistanceKm ?? null,
       intentions: profile.intentions,
       t4tPreference: profile.t4tPreference,
+      verifiedOnly: profile.verifiedOnly ?? false,
       genderModality: profile.genderModality,
     };
   },
@@ -470,7 +471,10 @@ export const listFeed = query({
     const t4tOnly =
       filters.t4tOnly ?? (viewerProfile.t4tPreference === 't4t-only');
 
-    const verifiedOnly = filters.verifiedOnly === true;
+    // Default from the viewer's stored preference, mirroring the t4tOnly
+    // pattern. The FilterSheet writes this server-side via updatePreferences
+    // and BrowseFeed passes empty filters, so the lookup happens here.
+    const verifiedOnly = filters.verifiedOnly ?? viewerProfile.verifiedOnly ?? false;
 
     // Empty arrays collapse to "no filter" — otherwise deselecting all
     // intentions in the FilterSheet would silently zero out the feed.
@@ -653,6 +657,7 @@ export const updatePreferences = mutation({
     maxDistanceKm: v.optional(v.number()),
     intentions: v.optional(v.array(INTENTION)),
     t4tPreference: v.optional(T4T_PREFERENCE),
+    verifiedOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { user, profile } = await requireUserAndProfile(ctx);
@@ -703,6 +708,10 @@ export const updatePreferences = mutation({
       // a buggy client from ever writing the invalid state.
       patch.t4tPreference =
         profile.genderModality === 'cis' ? 'open' : args.t4tPreference;
+    }
+
+    if (args.verifiedOnly !== undefined) {
+      patch.verifiedOnly = args.verifiedOnly;
     }
 
     const now = Date.now();

@@ -8,6 +8,8 @@ import type { Id } from '~/convex/_generated/dataModel';
 import { Avatar } from '~/src/components/ui/Avatar';
 import { Text } from '~/src/components/ui/Text';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
+import { useBlockAction } from '~/src/features/blocks/BlockAction';
+import { ReportSheet } from '~/src/features/reports/ReportSheet';
 
 export type ChatHeaderProps = {
   matchId: Id<'matches'>;
@@ -29,7 +31,9 @@ export function ChatHeader({
   const router = useRouter();
   const track = useTrack();
   const unmatch = useMutation(api.matches.unmatch);
+  const blockUser = useBlockAction();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reportSheetOpen, setReportSheetOpen] = useState(false);
 
   function confirmUnmatch() {
     setMenuOpen(false);
@@ -148,6 +152,42 @@ export function ChatHeader({
             </Pressable>
             <View className="h-px bg-plum-50" />
             <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                setReportSheetOpen(true);
+              }}
+              className="px-4 py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Report this person"
+            >
+              <Text variant="body" className="text-plum-900">
+                Report
+              </Text>
+            </Pressable>
+            <View className="h-px bg-plum-50" />
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                blockUser({
+                  targetUserId: counterpartyUserId,
+                  displayName: counterpartyDisplayName,
+                  // After block, the conversation no longer exists for the
+                  // blocker (the match flips to 'unmatched' inside the
+                  // mutation). Pop back to the previous screen so the user
+                  // doesn't sit on a now-defunct chat.
+                  onSuccess: () => router.back(),
+                });
+              }}
+              className="px-4 py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Block this person"
+            >
+              <Text variant="body" className="text-rose-700">
+                Block
+              </Text>
+            </Pressable>
+            <View className="h-px bg-plum-50" />
+            <Pressable
               onPress={confirmUnmatch}
               className="px-4 py-3"
               accessibilityRole="button"
@@ -160,6 +200,13 @@ export function ChatHeader({
           </View>
         </Pressable>
       </Modal>
+      <ReportSheet
+        visible={reportSheetOpen}
+        onClose={() => setReportSheetOpen(false)}
+        reportedUserId={counterpartyUserId}
+        reportedDisplayName={counterpartyDisplayName}
+        matchId={matchId}
+      />
     </View>
   );
 }

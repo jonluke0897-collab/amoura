@@ -17,6 +17,7 @@ export type LikeCardProps = {
   fromCity: string | null;
   fromPronouns: string[];
   comment: string;
+  targetType: 'prompt' | 'photo';
   targetDescription: string;
   isPaidTier: boolean;
   /**
@@ -36,6 +37,7 @@ export function LikeCard({
   fromCity,
   fromPronouns,
   comment,
+  targetType,
   targetDescription,
   isPaidTier,
   onMatched,
@@ -118,16 +120,35 @@ export function LikeCard({
             numberOfLines={1}
             className="text-xs text-plum-400 mt-1"
           >
-            liked {targetDescription}
+            {/* Free tier sees only the category (prompt vs photo) — the
+                specific prompt question would leak which of your answers
+                hooked them, which is part of the paid-tier experience. */}
+            {isPaidTier
+              ? `liked ${targetDescription}`
+              : `liked one of your ${
+                  targetType === 'prompt' ? 'prompts' : 'photos'
+                }`}
           </Text>
         </View>
       </View>
 
       <View className="px-4 pb-3">
         <View className="bg-plum-50 rounded-md px-3 py-3">
-          <Text variant="body" className="text-base text-plum-900 leading-6">
-            “{comment}”
-          </Text>
+          {isPaidTier ? (
+            <Text variant="body" className="text-base text-plum-900 leading-6">
+              “{comment}”
+            </Text>
+          ) : (
+            // Comment is paywalled — showing it for free defeats the point
+            // of "Go Premium to see what they said". Italicize so it reads
+            // as a placeholder, not a real quote.
+            <Text
+              variant="body"
+              className="text-base text-plum-400 leading-6 italic"
+            >
+              Their comment is hidden — go Premium to read it.
+            </Text>
+          )}
         </View>
       </View>
 

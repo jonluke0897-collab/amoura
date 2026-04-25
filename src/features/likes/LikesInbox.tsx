@@ -85,6 +85,7 @@ export function LikesInbox() {
             fromCity={item.fromCity}
             fromPronouns={item.fromPronouns}
             comment={item.comment}
+            targetType={item.targetType}
             targetDescription={item.targetDescription}
             isPaidTier={isPaidTier}
             onMatched={(matchId) => router.push(`/chat/${matchId}` as never)}

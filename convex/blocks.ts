@@ -102,20 +102,21 @@ export const block = mutation({
     // pending like is superseded) is the cleaner audit verb than 'passed'
     // (user-driven decline).
     //
-    // The inbound branch uses by_to_user_status (toUserId=me, status=pending)
-    // rather than by_from_user — that's the narrower index for our use
-    // case, since we only care about pending likes hitting the caller's
-    // inbox. Otherwise a high-activity target's full outbound history
-    // would be scanned just to find the one row addressed to me.
+    // Outbound uses by_from_to_status to bound the lookup to exactly the
+    // (sender, recipient, status) slice. Inbound uses by_to_user_status
+    // and filters fromUserId — by_from_to_status would also work for
+    // inbound but its leading column (fromUserId) doesn't fit the access
+    // pattern as cleanly when the caller is the recipient. Either way,
+    // both queries are now index-bounded rather than scanning anyone's
+    // full like history.
     const [outboundPending, inboundPending] = await Promise.all([
       ctx.db
         .query('likes')
-        .withIndex('by_from_user', (q) => q.eq('fromUserId', user._id))
-        .filter((q) =>
-          q.and(
-            q.eq(q.field('toUserId'), args.targetUserId),
-            q.eq(q.field('status'), 'pending'),
-          ),
+        .withIndex('by_from_to_status', (q) =>
+          q
+            .eq('fromUserId', user._id)
+            .eq('toUserId', args.targetUserId)
+            .eq('status', 'pending'),
         )
         .collect(),
       ctx.db
@@ -154,8 +155,8 @@ export const unblock = mutation({
 });
 
 type BlockedUserRow = {
-  blockId: string;
-  userId: string;
+  blockId: Id<'blocks'>;
+  userId: Id<'users'>;
   // displayName / firstPhotoUrl can both be null for orphaned blocks where
   // the blocked user's row was purged after the soft-delete window (per
   // FR-029). Surfacing the row anyway lets the user unblock — without it,

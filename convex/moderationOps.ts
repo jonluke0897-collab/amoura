@@ -217,6 +217,14 @@ export const banUser = mutation({
     const moderator = await requireModerator(ctx);
     const target = await ctx.db.get(args.targetUserId);
     if (!target) throw new Error('Target user not found');
+    // Don't ban an already-deleted account. The user-initiated soft-delete
+    // is itself terminal, and banning during the 30-day purge window
+    // overrides the user's own choice to leave. If a deleted user is later
+    // identified as a bad actor, the right move is a direct dashboard
+    // write to record the audit context — not a helper-mutation flip.
+    if (target.accountStatus === 'deleted') {
+      throw new Error('Cannot ban a deleted account.');
+    }
     if (args.relatedReportId) {
       await loadAndAssertReportTarget(
         ctx,

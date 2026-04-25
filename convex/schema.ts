@@ -128,6 +128,11 @@ export default defineSchema({
     .index('by_from_user', ['fromUserId'])
     .index('by_to_user', ['toUserId'])
     .index('by_to_user_status', ['toUserId', 'status'])
+    // Phase 5 TASK-064: blocks.block needs to retire pending likes between
+    // a specific (sender, recipient) pair. Without this index the outbound
+    // direction would scan the blocker's entire outbound history; the
+    // compound key bounds the lookup to the exact pair+status slice.
+    .index('by_from_to_status', ['fromUserId', 'toUserId', 'status'])
     .index('by_expires', ['expiresAt']),
 
   matches: defineTable({

@@ -46,15 +46,14 @@ async function raceWithTimeout<T>(
   ms: number,
   label: string,
 ): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms);
   });
   try {
     return await Promise.race([promise, timeout]);
   } finally {
-    // @ts-expect-error timeoutId is assigned synchronously inside the Promise constructor
-    clearTimeout(timeoutId);
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 }
 

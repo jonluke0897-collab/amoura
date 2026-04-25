@@ -24,6 +24,11 @@ export default defineSchema({
       v.literal('banned'),
       v.literal('deleted'),
     ),
+    // Moderator gate for the descoped Phase 5 dashboard flow (TASK-065).
+    // Absence = "user"; only set explicitly via `npx convex env` or direct
+    // dashboard write. Phase 6 will expose moderator management in the
+    // Next.js admin UI.
+    role: v.optional(v.union(v.literal('user'), v.literal('moderator'))),
     lastActiveAt: v.number(),
     createdAt: v.number(),
   })
@@ -168,6 +173,13 @@ export default defineSchema({
     ),
     photoStorageId: v.optional(v.id('_storage')),
     readAt: v.optional(v.number()),
+    // Phase 5 TASK-066: keyword moderation. `true` means a moderationFlags
+    // row also exists for this message and a moderator should review. The
+    // message is NOT auto-deleted — false positives on reclaimed language
+    // would silently harm trans users, so we deliver and surface to the
+    // moderator queue instead. Optional during the migration window;
+    // application code treats absence as `false`.
+    flagged: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index('by_match_created', ['matchId', 'createdAt'])
@@ -204,6 +216,11 @@ export default defineSchema({
     .index('by_status', ['status'])
     .index('by_reported_user', ['reportedUserId'])
     .index('by_reporter', ['reporterId'])
+    // Phase 5 FR-023 bad-actor cron: range-scan reports per user within the
+    // last 7 days. The single-field by_reported_user can't bound the time
+    // window cheaply, so the compound index lets the cron stream straight to
+    // the relevant slice.
+    .index('by_reported_user_created', ['reportedUserId', 'createdAt'])
     .index('by_created', ['createdAt']),
 
   verifications: defineTable({
@@ -282,4 +299,30 @@ export default defineSchema({
     periodStart: v.number(),
   })
     .index('by_user_bucket', ['userId', 'bucket']),
+
+  // Phase 5 TASK-065 (descoped): audit log for every moderator and system
+  // action. Phase 6's Next.js admin UI will read from this table; for the
+  // launch window, the entries are written by `convex/moderationOps.ts`
+  // mutations called from the Convex dashboard's Run Function panel and by
+  // the FR-023 cron's auto-suspensions.
+  //
+  // `actorUserId` is a string (not `Id<'users'>`) so 'system-cron' and other
+  // sentinel actors can coexist with real moderator IDs without polluting
+  // the users table.
+  moderationActions: defineTable({
+    actorUserId: v.string(),
+    targetUserId: v.id('users'),
+    action: v.union(
+      v.literal('warn'),
+      v.literal('suspend'),
+      v.literal('ban'),
+      v.literal('dismiss'),
+      v.literal('auto-suspend'),
+    ),
+    reason: v.optional(v.string()),
+    relatedReportId: v.optional(v.id('reports')),
+    createdAt: v.number(),
+  })
+    .index('by_target', ['targetUserId'])
+    .index('by_created', ['createdAt']),
 });

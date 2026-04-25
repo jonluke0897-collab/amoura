@@ -45,6 +45,11 @@ yarn-error.*
 # Convex
 /convex/_generated/
 
+# Moderation keyword list — advisor-curated, kept out of source control so
+# the slur/fetish-language list isn't searchable in the public repo. The
+# .example.ts placeholder ships in-repo so contributors know the shape.
+/convex/moderationKeywords.ts
+
 # editor
 .vscode/
 .idea/

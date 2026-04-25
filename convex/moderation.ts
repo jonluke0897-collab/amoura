@@ -1,26 +1,80 @@
 /**
- * Content moderation — Phase 4 stub.
+ * Content moderation — Phase 5 keyword check.
  *
- * TODO(phase-5): real keyword + ML check lands in roadmap Phase 5 alongside
- * the report flow (TASK-063) and bad-actor pattern detection. For now every
- * body is approved so the messaging UX works end-to-end. The stub lives in
- * its own module so the call sites in likes.send / messages.send don't have
- * to move when the real check arrives.
+ * Scans bodies (messages, like comments) against an advisor-curated list of
+ * slurs and obvious fetish-language phrases. The list lives in
+ * `convex/moderationKeywords.ts`, which is gitignored — see
+ * `moderationKeywords.example.ts` for the shape and curation rules.
  *
- * Intentionally NOT async: the current check is trivially synchronous, and
- * callers mint a Date.now() before the insert — adding an unnecessary await
- * would widen the window for clock drift in the atomic match creation path.
- * When the real check goes through a Convex action, flip the signature then.
+ * Key product principle (vision § 1, "Safety is a feature, not a policy"):
+ * flagged content is **NOT auto-deleted**. Reclaimed in-community language
+ * generates inevitable false positives, and silent suppression is a worse
+ * harm than letting a moderator review. Callers persist `flagged: true` on
+ * the row and emit a moderationFlags audit row; the message still delivers.
+ *
+ * Intentionally synchronous: the keyword set is in-memory, no I/O. Keeps the
+ * call-site flow in messages.send / likes.send single-pass without await.
  */
+import { MODERATION_KEYWORDS } from './moderationKeywords';
+
 export type ModerationResult = {
   flagged: boolean;
   reason?: string;
+  matchedKeyword?: string;
 };
 
-export function checkMessage(_body: string): ModerationResult {
+// Pre-lowercase the keyword list once at module load so the per-message scan
+// stays O(keywords * body) without allocating per call.
+const NORMALIZED_KEYWORDS = MODERATION_KEYWORDS.map((k) => k.toLowerCase());
+
+/**
+ * Lowercase a body and collapse non-letter/non-digit/non-space runs to a
+ * single space. This lets a contiguous word match survive punctuation,
+ * combining marks, and most stylization tricks ("s.l.u.r" → "s l u r"). It
+ * is NOT a defense against motivated obfuscation — that's the moderator's
+ * job — just a baseline that catches the obvious.
+ */
+function normalize(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function scanForKeyword(body: string): string | null {
+  const normalized = normalize(body);
+  if (normalized.length === 0) return null;
+  // Pad with spaces so word-boundary matches work for keywords at the very
+  // start or end of the message without a separate edge case.
+  const padded = ` ${normalized} `;
+  for (const keyword of NORMALIZED_KEYWORDS) {
+    const padKeyword = ` ${keyword} `;
+    if (padded.includes(padKeyword)) return keyword;
+  }
+  return null;
+}
+
+export function checkMessage(body: string): ModerationResult {
+  const matched = scanForKeyword(body);
+  if (matched) {
+    return {
+      flagged: true,
+      reason: 'message-keyword',
+      matchedKeyword: matched,
+    };
+  }
   return { flagged: false };
 }
 
-export function checkLikeComment(_comment: string): ModerationResult {
+export function checkLikeComment(comment: string): ModerationResult {
+  const matched = scanForKeyword(comment);
+  if (matched) {
+    return {
+      flagged: true,
+      reason: 'like-comment-keyword',
+      matchedKeyword: matched,
+    };
+  }
   return { flagged: false };
 }

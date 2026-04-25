@@ -5,6 +5,7 @@ import { mutation, query } from './_generated/server';
 import type { Id } from './_generated/dataModel';
 import { requireUserAndProfile } from './lib/currentUser';
 import { checkAndIncrement, hasActiveSubscription } from './lib/rateLimit';
+import { isBlockedBetween } from './lib/blocks';
 import { checkMessage } from './moderation';
 
 const MIN_BODY_CHARS = 1;
@@ -101,11 +102,25 @@ export const send = mutation({
       throw new Error(`Message must be ${MAX_BODY_CHARS} characters or fewer`);
     }
 
-    // Moderation stub — flagged=false for all bodies until Phase 5.
-    const moderation = checkMessage(trimmed);
-    if (moderation.flagged) {
-      throw new Error(moderation.reason ?? 'Message did not pass moderation');
+    // Phase 5 TASK-064: block check parallels likes.send. Either party
+    // having blocked the other terminates the send. The match is supposed
+    // to flip to 'unmatched' on block (see convex/blocks.ts), but we keep
+    // the explicit check as defense-in-depth for any race where the match
+    // patch hasn't propagated yet.
+    const iAmUserA = match.userAId === user._id;
+    const recipientUserId = iAmUserA ? match.userBId : match.userAId;
+    if (await isBlockedBetween(ctx, user._id, recipientUserId)) {
+      throw new Error('This conversation is no longer available.');
     }
+
+    // Phase 5 TASK-066 keyword check. Unlike likes.send (which rejects
+    // flagged comments), messages are deliver-but-flag: the message
+    // persists with flagged=true and a moderationFlags audit row is
+    // written. Rationale: reclaimed in-community language inside an
+    // established thread should not be silently suppressed; a moderator
+    // reviews after the fact.
+    const moderation = checkMessage(trimmed);
+    const isFlagged = moderation.flagged;
 
     await checkAndIncrement(ctx, user._id, 'messages-daily', MESSAGES_PER_DAY);
 
@@ -115,8 +130,20 @@ export const send = mutation({
       senderId: user._id,
       body: trimmed,
       messageType: 'text',
+      flagged: isFlagged,
       createdAt: now,
     });
+
+    if (isFlagged) {
+      await ctx.db.insert('moderationFlags', {
+        userId: user._id,
+        flagType: 'flagged-keywords',
+        severity: 'medium',
+        details: `message:${messageId} keyword:${moderation.matchedKeyword ?? 'unknown'}`,
+        status: 'open',
+        createdAt: now,
+      });
+    }
 
     // Preview is truncated for the match-list row. Use grapheme-safe slice?
     // JS String.slice by UTF-16 code unit is fine for the truncation length
@@ -127,8 +154,6 @@ export const send = mutation({
         ? `${trimmed.slice(0, PREVIEW_CHARS - 1)}…`
         : trimmed;
 
-    const iAmUserA = match.userAId === user._id;
-    const recipientUserId = iAmUserA ? match.userBId : match.userAId;
     await ctx.db.patch(match._id, {
       lastMessageAt: now,
       lastMessagePreview: preview,

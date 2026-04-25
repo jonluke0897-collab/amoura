@@ -71,9 +71,10 @@ export const send = mutation({
       );
     }
 
-    // Moderation: Phase 5 stub returns flagged=false for all bodies today.
-    // When the real check lands, this branch rejects before the insert so
-    // no flagged comment ever persists.
+    // Moderation: like comments are conversation-openers from a stranger,
+    // so the deliver-but-flag pattern used in messages.send doesn't apply
+    // here — a flagged opener is rejected outright. Reclaimed in-community
+    // language belongs inside an established thread, not in cold outreach.
     const moderation = checkLikeComment(trimmedComment);
     if (moderation.flagged) {
       throw new Error(moderation.reason ?? 'Comment did not pass moderation');

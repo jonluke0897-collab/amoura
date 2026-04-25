@@ -108,7 +108,14 @@ export function LikeWithCommentModal({
             via: 'reciprocal_like_on_send',
           });
         }
-        void promptForPushPermissionIfNeeded();
+        // .catch() because the surrounding try only sees sync throws —
+        // a rejected permission promise (user denies, OS quirk) would
+        // otherwise propagate as an unhandled rejection in dev.
+        void promptForPushPermissionIfNeeded().catch((err) => {
+          if (__DEV__) {
+            console.warn('[likes] push permission prompt rejected', err);
+          }
+        });
       } catch (sideErr) {
         if (__DEV__) {
           console.warn('[likes] post-success side-effects failed', sideErr);

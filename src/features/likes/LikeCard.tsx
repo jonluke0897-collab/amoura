@@ -61,7 +61,11 @@ export function LikeCard({
           // PostHog's MATCH_CREATED count and prompt for push without
           // anything to push.
           track(AnalyticsEvents.MATCH_CREATED, { via: 'like_responded' });
-          void promptForPushPermissionIfNeeded();
+          void promptForPushPermissionIfNeeded().catch((err) => {
+            if (__DEV__) {
+              console.warn('[likes] push permission prompt rejected', err);
+            }
+          });
           onMatched(result.matchId);
         } else {
           Alert.alert(

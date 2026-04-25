@@ -119,6 +119,15 @@ export function IDVerification() {
     try {
       const { url } = await startId();
       track(AnalyticsEvents.VERIFICATION_STARTED, { type: 'id' });
+      // Snapshot idLatestAt BEFORE opening the browser. Persona can
+      // finalize the inquiry and fire the webhook while the browser
+      // session is still open — by the time openAuthSessionAsync
+      // resolves, status.idLatestAt may already reflect the new row.
+      // Snapshotting after that point would capture the already-
+      // advanced value and the watcher would never observe a change,
+      // stranding the user on "Waiting for result…" until the 60s
+      // timeout fires.
+      statusBeforeAttemptRef.current = status?.idLatestAt ?? null;
       setWorking('inFlight');
       // openAuthSessionAsync gives us iOS SFAuthenticationSession +
       // Android Custom Tabs treatment, with the deep-link redirect
@@ -143,7 +152,6 @@ export function IDVerification() {
       // status query reflects a new row — otherwise the user could
       // re-tap the CTA between browser-close and webhook-land and
       // spawn a duplicate Persona inquiry.
-      statusBeforeAttemptRef.current = status?.idLatestAt ?? null;
       setWorking('awaitingWebhook');
     } catch (e) {
       console.warn('[IDVerification] startId failed', e);

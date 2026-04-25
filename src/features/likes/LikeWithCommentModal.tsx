@@ -240,8 +240,25 @@ function mapErrorToCopy(raw: string): string {
   if (raw.startsWith('RATE_LIMITED:')) {
     return "You've hit a daily limit. Try again later.";
   }
+  if (raw.includes('cannot like your own profile')) {
+    // Shouldn't surface in the normal flow (the modal opens from
+    // someone else's profile), but a direct API call or a stale cache
+    // could still hit it. Better to name the case than show "Something
+    // went wrong".
+    return "You can't like your own profile.";
+  }
   if (raw.includes('already have a pending like')) {
     return "You've already liked this profile — wait for a response.";
+  }
+  if (
+    raw.includes('did not pass moderation') ||
+    raw.includes('moderation')
+  ) {
+    // Phase 5 wires real keyword/ML rejection; today the stub returns
+    // flagged=false so this branch is dormant. Surfacing copy now means
+    // the moment moderation goes live the user gets actionable feedback
+    // instead of a generic error.
+    return 'That comment could not be sent. Try rephrasing it.';
   }
   if (raw.includes('block') || raw.includes('Profile unavailable')) {
     return "This profile isn't available right now.";

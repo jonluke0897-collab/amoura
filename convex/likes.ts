@@ -234,17 +234,18 @@ export const listInbound = query({
     let continueCursor = '';
     while (page.length < numItems && !isDone) {
       const remaining = numItems - page.length;
-      // Over-fetch a little to amortize the round-trip when the dropout
-      // rate is non-trivial (blocks, expirations). 2x is a heuristic
-      // that's right for typical densities; worst case we just paginate
-      // again in the next loop iteration.
+      // Fetch exactly `remaining` per pass — over-fetching would skip
+      // unconsumed live rows because Convex's continueCursor points to
+      // the end of the batch we requested, not to the last row we
+      // actually consumed. We pay an extra round-trip when filters drop
+      // rows, which is the right tradeoff for correctness.
       const batch = await ctx.db
         .query('likes')
         .withIndex('by_to_user_status', (q) =>
           q.eq('toUserId', user._id).eq('status', 'pending'),
         )
         .order('desc')
-        .paginate({ ...args.paginationOpts, cursor, numItems: remaining * 2 });
+        .paginate({ ...args.paginationOpts, cursor, numItems: remaining });
       const resolved = await Promise.all(
         batch.page.map((like) =>
           resolveInboundLike(ctx, user._id, like, now),
@@ -252,7 +253,6 @@ export const listInbound = query({
       );
       for (const row of resolved) {
         if (row) page.push(row);
-        if (page.length >= numItems) break;
       }
       cursor = batch.continueCursor;
       continueCursor = batch.continueCursor;
@@ -341,8 +341,22 @@ export const countInbound = query({
         q.eq('toUserId', user._id).eq('status', 'pending'),
       )
       .collect();
-    const live = pending.filter((l) => l.expiresAt > now).length;
-    return { pending: live };
+    // Apply the same visibility rules as listInbound — otherwise the
+    // free-tier "X people liked you" banner advertises likes the user
+    // would never see in the inbox (sender deactivated, blocked either
+    // direction, or expired). Per-row block + sender check is one extra
+    // round trip apiece but pending counts are bounded (likes have a
+    // 7-day TTL so worst case is ~daily-cap × 7 rows).
+    const checks = await Promise.all(
+      pending.map(async (like) => {
+        if (like.expiresAt <= now) return false;
+        const sender = await ctx.db.get(like.fromUserId);
+        if (!sender || sender.accountStatus !== 'active') return false;
+        if (await isBlockedBetween(ctx, user._id, like.fromUserId)) return false;
+        return true;
+      }),
+    );
+    return { pending: checks.filter(Boolean).length };
   },
 });
 
@@ -407,6 +421,15 @@ export const respond = mutation({
     // out, but a stale push notification could still link to one).
     if (like.expiresAt <= Date.now()) {
       await ctx.db.patch(like._id, { status: 'expired' });
+      return { matchId: null as Id<'matches'> | null };
+    }
+    // Re-check blocks. send() and listInbound() both enforce this, but a
+    // block placed AFTER the like was sent leaves a stale row that's
+    // still actionable from cached client state or a push deep link.
+    // Treat post-block actions as soft-pass: clear the row from the
+    // recipient's inbox without telling the sender they were matched.
+    if (await isBlockedBetween(ctx, like.fromUserId, user._id)) {
+      await ctx.db.patch(like._id, { status: 'passed' });
       return { matchId: null as Id<'matches'> | null };
     }
 

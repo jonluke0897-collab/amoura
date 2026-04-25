@@ -8,7 +8,7 @@ import { Input } from '~/src/components/ui/Input';
 import { AnalyticsEvents, useTrack } from '~/src/lib/analytics';
 import { SIGN_IN } from '~/src/features/onboarding/onboardingCopy';
 import { EMAIL_PATTERN } from '~/src/lib/validation';
-import { useOAuthFlow } from './useOAuthFlow';
+import { summarizeClerkError, useOAuthFlow } from './useOAuthFlow';
 
 export type PasswordLoginSheetProps = {
   visible: boolean;
@@ -108,23 +108,37 @@ export function PasswordLoginSheet({ visible, onClose }: PasswordLoginSheetProps
         track(AnalyticsEvents.SIGN_IN_FAILED, { method: 'email_password' });
         setError(SIGN_IN.logInFailed);
       } else {
-        // 'incomplete' — Clerk needs more factors (future MFA). Surface
-        // a generic retry message; we don't handle 2FA yet. Tracked as
-        // a failure with a distinct reason so the analytics funnel can
-        // separate "bad credentials" from "MFA wall".
+        // 'incomplete' — Clerk needs another step. We don't yet handle
+        // any continuation states (MFA, forced password reset, missing
+        // first factor) so the UI surfaces a generic retry message;
+        // `reason` stays neutral and `clerk_status` carries the actual
+        // continuation kind so the funnel can disambiguate.
         track(AnalyticsEvents.SIGN_IN_FAILED, {
           method: 'email_password',
-          reason: 'mfa_required',
+          reason: 'additional_verification_required',
+          clerk_status: result.clerkStatus,
         });
         setError('Additional verification is required. Please contact support.');
       }
     } catch (e) {
-      // User sees stable copy; raw exception text goes to telemetry only.
-      // Avoids leaking Clerk internals ("token_expired", network URLs, etc.)
-      // into UI that might be screenshotted or logged by the OS.
+      // User sees stable copy; telemetry receives a discrete `error_kind`
+      // classifier (Clerk's structured fields go in their own properties).
+      // Free-form `e.message` is intentionally NOT forwarded — Clerk error
+      // strings include internal request URLs and IDs that we don't want
+      // persisted in PostHog. Devs investigating in `__DEV__` get the full
+      // structured error via `devWarnAuthError` in useOAuthFlow instead.
+      const clerk = summarizeClerkError(e);
+      const errorKind = clerk
+        ? 'clerk_api_error'
+        : e instanceof Error
+          ? e.name
+          : 'unknown_error';
       track(AnalyticsEvents.SIGN_IN_FAILED, {
         method: 'email_password',
-        error: e instanceof Error ? e.message : String(e),
+        error_kind: errorKind,
+        clerk_code: clerk?.code ?? null,
+        clerk_codes: clerk?.codes ?? null,
+        clerk_param: clerk?.paramName ?? null,
       });
       setError(SIGN_IN.authUnexpected);
     }

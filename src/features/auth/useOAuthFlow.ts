@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { isClerkAPIResponseError, useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 
 // Ensures any in-flight OAuth WebBrowser sessions complete when we return to the app.
 // Safe to call at module load; Clerk's Expo guide recommends this.
@@ -40,6 +40,59 @@ const isInvalidCredentialsError = (e: unknown) =>
   hasErrorCode(e, 'form_identifier_not_found') ||
   hasErrorCode(e, 'form_password_incorrect') ||
   hasErrorCode(e, 'form_password_or_identifier_incorrect');
+
+/**
+ * Pulls the structured fields off a Clerk API error so callers can forward
+ * them into telemetry and dev logs. Clerk wraps every API failure in an
+ * `errors[]` array — the top entry is what's user-facing, the rest are
+ * supplementary. We surface the first code as the primary signal and a
+ * comma-joined list as the secondary signal so PostHog can group failures
+ * by `clerk_code` without losing detail.
+ */
+export type ClerkErrorSummary = {
+  code: string;
+  codes: string;
+  message: string;
+  longMessage: string | null;
+  paramName: string | null;
+};
+
+export function summarizeClerkError(e: unknown): ClerkErrorSummary | null {
+  if (!isClerkAPIResponseError(e)) return null;
+  const errors = e.errors ?? [];
+  const first = errors[0];
+  if (!first) return null;
+  return {
+    code: first.code ?? 'unknown',
+    codes: errors.map((err) => err.code ?? 'unknown').join(','),
+    message: first.message ?? '',
+    longMessage: first.longMessage ?? null,
+    paramName: first.meta?.paramName ?? null,
+  };
+}
+
+// Dev-only structured warning — gives the developer the Clerk error code at
+// a glance instead of having to dig through an opaque "Something went wrong"
+// message in the UI. No-op in production.
+function devWarnAuthError(scope: string, e: unknown) {
+  if (!__DEV__) return;
+  const summary = summarizeClerkError(e);
+  if (summary) {
+    console.warn(`[Amoura] ${scope} — Clerk API error`, summary);
+  } else {
+    console.warn(`[Amoura] ${scope} — non-Clerk error`, e);
+  }
+}
+
+// Dev-only warning for non-complete `attempt.status` returns. We don't
+// support continuation states like `needs_new_password` / MFA yet, so the
+// caller surfaces a generic "additional verification required" message —
+// this prints which state we actually hit so it's visible without parsing
+// the PostHog funnel.
+function devWarnIncomplete(scope: string, clerkStatus: string) {
+  if (!__DEV__) return;
+  console.warn(`[Amoura] ${scope} — non-complete Clerk status`, { clerkStatus });
+}
 
 export function useOAuthFlow() {
   const appleFlow = useOAuth({ strategy: 'oauth_apple' });
@@ -128,7 +181,11 @@ export function useOAuthFlow() {
   const verifyEmailCode = useCallback(
     async (
       code: string,
-    ): Promise<{ status: 'complete' | 'incomplete' | 'invalid_code' }> => {
+    ): Promise<
+      | { status: 'complete' }
+      | { status: 'invalid_code' }
+      | { status: 'incomplete'; clerkStatus: string }
+    > => {
       const trimmed = code.trim();
       if (!trimmed) throw new Error('Enter the code from your email');
       if (!signIn || !signUp || !setActive) {
@@ -151,7 +208,15 @@ export function useOAuthFlow() {
               modeRef.current = null;
               return { status: 'complete' };
             }
-            return { status: 'incomplete' };
+            // Forward the actual Clerk status (`needs_first_factor`,
+            // `needs_new_password`, …) so the caller can record which
+            // continuation state we hit. Without this, every non-complete
+            // outcome looks the same in PostHog. Clerk types `status` as
+            // `SignInStatus | null` (null = pre-create); coerce so the
+            // analytics payload always has a string.
+            const status = attempt.status ?? 'unknown';
+            devWarnIncomplete('verifyEmailCode/signIn', status);
+            return { status: 'incomplete', clerkStatus: status };
           }
 
           // signUp branch
@@ -163,7 +228,9 @@ export function useOAuthFlow() {
             modeRef.current = null;
             return { status: 'complete' };
           }
-          return { status: 'incomplete' };
+          const status = attempt.status ?? 'unknown';
+          devWarnIncomplete('verifyEmailCode/signUp', status);
+          return { status: 'incomplete', clerkStatus: status };
         } catch (e) {
           if (isIncorrectCodeError(e)) {
             return { status: 'invalid_code' };
@@ -186,7 +253,11 @@ export function useOAuthFlow() {
     async (
       email: string,
       password: string,
-    ): Promise<{ status: 'complete' | 'incomplete' | 'invalid_credentials' }> => {
+    ): Promise<
+      | { status: 'complete' }
+      | { status: 'invalid_credentials' }
+      | { status: 'incomplete'; clerkStatus: string }
+    > => {
       const identifier = email.trim();
       if (!identifier) throw new Error('Enter a valid email address');
       if (!password) throw new Error('Enter your password');
@@ -197,10 +268,14 @@ export function useOAuthFlow() {
       setBusy('email');
       try {
         try {
-          // Clerk's legacy sign-in `create` takes identifier + password
-          // directly — there is no `strategy` parameter on this method
-          // signature. Passing one is typed-but-unsupported.
+          // `SignInCreateParams` is a discriminated union — for a password
+          // attempt the discriminator is `strategy: 'password'`. Without it,
+          // TypeScript narrows to the bare `{ identifier }` overload and
+          // Clerk's API silently treats the request as a factor-discovery
+          // call (returning `needs_first_factor`), or rejects it outright
+          // when password isn't a configured strategy on the instance.
           const attempt = await signIn.create({
+            strategy: 'password',
             identifier,
             password,
           });
@@ -208,11 +283,24 @@ export function useOAuthFlow() {
             await setActive({ session: attempt.createdSessionId });
             return { status: 'complete' };
           }
-          return { status: 'incomplete' };
+          // Clerk has multiple non-complete statuses (`needs_first_factor`
+          // when password is disabled on the instance, `needs_new_password`
+          // for forced resets, `needs_second_factor` for MFA, …). Forward
+          // the actual status so PostHog/telemetry shows which one fired
+          // instead of a generic 'incomplete'. Clerk types `status` as
+          // `SignInStatus | null`; coerce so the payload always has a string.
+          const status = attempt.status ?? 'unknown';
+          devWarnIncomplete('signInWithPassword', status);
+          return { status: 'incomplete', clerkStatus: status };
         } catch (e) {
           if (isInvalidCredentialsError(e)) {
             return { status: 'invalid_credentials' };
           }
+          // Anything past this point is "unexpected" from the UI's POV
+          // (instance config issue, MFA, network, unverified email). Log
+          // the structured error in dev so the developer sees the code
+          // immediately; rethrow so the caller can record it in telemetry.
+          devWarnAuthError('signInWithPassword', e);
           throw e;
         }
       } finally {

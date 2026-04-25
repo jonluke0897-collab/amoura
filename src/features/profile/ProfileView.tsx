@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pencil } from 'lucide-react-native';
 import type { Id } from '~/convex/_generated/dataModel';
 import { Text } from '~/src/components/ui/Text';
@@ -84,6 +85,7 @@ export function ProfileView({
   selectedTarget = null,
   onSelectTarget,
 }: ProfileViewProps) {
+  const insets = useSafeAreaInsets();
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
   // Selection mode suppresses the fullscreen photo modal — in Phase 4's
   // like flow, tapping a photo picks it as the target. Users still tap to
@@ -106,7 +108,13 @@ export function ProfileView({
 
   return (
     <View className="flex-1 bg-cream-50">
-      <ScrollView contentContainerStyle={{ paddingBottom: bottomSlot ? 120 : 32 }}>
+      <ScrollView
+        contentContainerStyle={{
+          // Reserve space for the sticky bottomSlot + the OS bottom inset
+          // so the last scroll item isn't hidden behind the CTA + nav bar.
+          paddingBottom: bottomSlot ? 100 + insets.bottom : 32,
+        }}
+      >
         {hero && (
           <View className="relative">
             <PhotoCarousel
@@ -262,7 +270,15 @@ export function ProfileView({
       </ScrollView>
 
       {bottomSlot && (
-        <View className="absolute bottom-0 left-0 right-0 bg-cream-50 px-5 pb-6 pt-3 border-t border-plum-50">
+        // paddingBottom = inset + 12 so the CTA clears Android's gesture
+        // bar / 3-button nav bar in edge-to-edge mode (and iOS home
+        // indicator). Without this, the button draws under the system
+        // chrome on devices with no static bottom inset stripped by the
+        // OS.
+        <View
+          style={{ paddingBottom: insets.bottom + 12 }}
+          className="absolute bottom-0 left-0 right-0 bg-cream-50 px-5 pt-3 border-t border-plum-50"
+        >
           {bottomSlot}
         </View>
       )}

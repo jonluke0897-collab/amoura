@@ -73,21 +73,23 @@ async function fetchWithTimeout(
 type PersonaInquiryResponse = {
   data?: {
     id?: string;
-    attributes?: {
-      // Persona returns a hosted URL for embedded/web flows. Field
-      // historically named `inquiryUrl` or `referenceId` depending on
-      // SDK version; we read both as defensive measures.
-      'inquiry-url'?: string;
-      url?: string;
-    };
+  };
+};
+
+type PersonaOneTimeLinkResponse = {
+  meta?: {
+    'one-time-link'?: string;
+    'one-time-link-short'?: string;
   };
 };
 
 /**
- * Create a Persona inquiry for the calling user. Returns the hosted-flow
- * URL the client should open via expo-web-browser. The inquiryId is
- * stashed (returned to the client and reflected in the webhook so we can
- * correlate when the result comes back).
+ * Create a Persona inquiry for the calling user, then mint a one-time
+ * hosted link to it. Persona's POST /inquiries doesn't return a hosted
+ * URL by default (meta.one-time-link comes back null), so the second
+ * POST is the documented way to get a URL the client can open. The
+ * inquiryId is returned alongside so it can be reflected in the webhook
+ * for correlation.
  *
  * The user's clerkId is passed as the inquiry's referenceId. The webhook
  * uses that to look up the user when persisting the result, since
@@ -110,9 +112,9 @@ export const startId = action({
     if (!identity) throw new Error('Not authenticated');
     const referenceId = identity.subject;
 
-    let response: Response;
+    let inquiryResponse: Response;
     try {
-      response = await fetchWithTimeout(
+      inquiryResponse = await fetchWithTimeout(
         `${PERSONA_API_BASE_PROD}/inquiries`,
         {
           method: 'POST',
@@ -136,23 +138,58 @@ export const startId = action({
       );
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {
-        console.warn('[verificationActions.startId] Persona POST timed out');
+        console.warn('[verificationActions.startId] Persona create-inquiry timed out');
         throw new Error(
           'ID verification timed out. Please try again in a moment.',
         );
       }
       throw e;
     }
-    if (!response.ok) {
-      const text = await response.text().catch(() => '<no body>');
-      console.warn(`[verificationActions.startId] Persona POST failed: ${response.status} ${text}`);
+    if (!inquiryResponse.ok) {
+      const text = await inquiryResponse.text().catch(() => '<no body>');
+      console.warn(`[verificationActions.startId] Persona create-inquiry failed: ${inquiryResponse.status} ${text}`);
       throw new Error('Could not start ID verification. Try again in a moment.');
     }
-    const json = (await response.json()) as PersonaInquiryResponse;
-    const inquiryId = json.data?.id;
-    const url = json.data?.attributes?.['inquiry-url'] ?? json.data?.attributes?.url;
-    if (!inquiryId || !url) {
-      console.warn('[verificationActions.startId] Persona response missing id or url', json);
+    const inquiryJson = (await inquiryResponse.json()) as PersonaInquiryResponse;
+    const inquiryId = inquiryJson.data?.id;
+    if (!inquiryId) {
+      console.warn('[verificationActions.startId] Persona create-inquiry response missing data.id', inquiryJson);
+      throw new Error('Could not start ID verification. Try again in a moment.');
+    }
+
+    let linkResponse: Response;
+    try {
+      linkResponse = await fetchWithTimeout(
+        `${PERSONA_API_BASE_PROD}/inquiries/${inquiryId}/generate-one-time-link`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            'Persona-Version': '2023-01-05',
+          },
+        },
+        PERSONA_FETCH_TIMEOUT_MS,
+      );
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.warn('[verificationActions.startId] Persona generate-one-time-link timed out');
+        throw new Error(
+          'ID verification timed out. Please try again in a moment.',
+        );
+      }
+      throw e;
+    }
+    if (!linkResponse.ok) {
+      const text = await linkResponse.text().catch(() => '<no body>');
+      console.warn(`[verificationActions.startId] Persona generate-one-time-link failed: ${linkResponse.status} ${text}`);
+      throw new Error('Could not start ID verification. Try again in a moment.');
+    }
+    const linkJson = (await linkResponse.json()) as PersonaOneTimeLinkResponse;
+    const url = linkJson.meta?.['one-time-link'];
+    if (!url) {
+      console.warn('[verificationActions.startId] Persona generate-one-time-link response missing meta.one-time-link', linkJson);
       throw new Error('Could not start ID verification. Try again in a moment.');
     }
     return { inquiryId, url };

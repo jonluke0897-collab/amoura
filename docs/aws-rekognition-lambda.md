@@ -84,6 +84,28 @@ SigV4 and the only client is one trusted Convex action.
 Set CORS to `OPTIONS allowed origins: *` if you want to call from a
 browser later; otherwise leave it locked to Convex's outbound IPs.
 
+## Region gotcha
+
+**AWS Rekognition isn't available in every region.** Notably it's NOT
+available in `eu-north-1` (Stockholm) — DNS lookup for
+`rekognition.eu-north-1.amazonaws.com` fails with `ENOTFOUND`. Pick
+a Lambda region that supports Rekognition, or override the
+Rekognition client's region in code:
+
+```js
+const rekog = new RekognitionClient({ region: 'eu-west-1' });
+```
+
+For the canonical, current list of Rekognition-supported regions, see
+[AWS's regional services list](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/)
+and the [Rekognition endpoints reference](https://docs.aws.amazon.com/general/latest/gr/rekognition.html).
+Feature availability (e.g., Custom Labels) varies by region within
+the supported set.
+
+If the Lambda is in a different region than Rekognition, expect an
+extra ~30ms cross-region hop per call. For verification volume this
+is negligible; for high-throughput workloads, co-locate them.
+
 ## Convex env vars
 
 Set after the Lambda is deployed:

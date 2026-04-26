@@ -146,14 +146,20 @@ export const startId = action({
       throw e;
     }
     if (!inquiryResponse.ok) {
-      const text = await inquiryResponse.text().catch(() => '<no body>');
-      console.warn(`[verificationActions.startId] Persona create-inquiry failed: ${inquiryResponse.status} ${text}`);
+      // Don't log the response body — Persona's error envelopes can echo
+      // request fields, and downstream calls in this action can return
+      // hosted verification URLs we never want in log aggregators.
+      console.warn('[verificationActions.startId] Persona create-inquiry failed', {
+        status: inquiryResponse.status,
+      });
       throw new Error('Could not start ID verification. Try again in a moment.');
     }
     const inquiryJson = (await inquiryResponse.json()) as PersonaInquiryResponse;
     const inquiryId = inquiryJson.data?.id;
     if (!inquiryId) {
-      console.warn('[verificationActions.startId] Persona create-inquiry response missing data.id', inquiryJson);
+      console.warn('[verificationActions.startId] Persona create-inquiry response missing data.id', {
+        responseKeys: Object.keys(inquiryJson ?? {}),
+      });
       throw new Error('Could not start ID verification. Try again in a moment.');
     }
 
@@ -182,14 +188,21 @@ export const startId = action({
       throw e;
     }
     if (!linkResponse.ok) {
-      const text = await linkResponse.text().catch(() => '<no body>');
-      console.warn(`[verificationActions.startId] Persona generate-one-time-link failed: ${linkResponse.status} ${text}`);
+      console.warn('[verificationActions.startId] Persona generate-one-time-link failed', {
+        status: linkResponse.status,
+        inquiryId,
+      });
       throw new Error('Could not start ID verification. Try again in a moment.');
     }
     const linkJson = (await linkResponse.json()) as PersonaOneTimeLinkResponse;
     const url = linkJson.meta?.['one-time-link'];
     if (!url) {
-      console.warn('[verificationActions.startId] Persona generate-one-time-link response missing meta.one-time-link', linkJson);
+      // Never log linkJson directly — meta may contain a one-time-link in a
+      // shape we didn't account for, and that URL is a verification credential.
+      console.warn('[verificationActions.startId] Persona generate-one-time-link response missing meta.one-time-link', {
+        inquiryId,
+        metaKeys: Object.keys(linkJson.meta ?? {}),
+      });
       throw new Error('Could not start ID verification. Try again in a moment.');
     }
     return { inquiryId, url };
@@ -392,10 +405,14 @@ export const recordPersonaResult = internalAction({
       { clerkId: args.referenceId },
     );
     if (!userId) {
-      console.warn(
-        `[verificationActions.recordPersonaResult] no user for referenceId=${args.referenceId}`,
+      // Throw rather than return — a silent return 200-acks the webhook,
+      // Persona never retries, and the verification result is lost. Throwing
+      // surfaces a non-2xx from /persona-webhook so Persona's retry queue
+      // re-delivers (e.g., long enough for a slow Clerk → Convex user-sync to
+      // catch up).
+      throw new Error(
+        `Persona webhook referenceId could not be resolved: ${args.referenceId}`,
       );
-      return;
     }
     await ctx.runMutation(internal.verifications.applyPersonaResult, {
       userId,

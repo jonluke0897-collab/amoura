@@ -96,11 +96,11 @@ Rekognition client's region in code:
 const rekog = new RekognitionClient({ region: 'eu-west-1' });
 ```
 
-Confirmed Rekognition regions (as of 2026): us-east-1, us-east-2,
-us-west-1, us-west-2, eu-west-1 (Ireland), eu-west-2 (London),
-eu-central-1 (Frankfurt), ap-northeast-1, ap-northeast-2,
-ap-southeast-1, ap-southeast-2, ap-south-1, ca-central-1. Check
-the AWS regional services list for the current canonical answer.
+For the canonical, current list of Rekognition-supported regions, see
+[AWS's regional services list](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/)
+and the [Rekognition endpoints reference](https://docs.aws.amazon.com/general/latest/gr/rekognition.html).
+Feature availability (e.g., Custom Labels) varies by region within
+the supported set.
 
 If the Lambda is in a different region than Rekognition, expect an
 extra ~30ms cross-region hop per call. For verification volume this

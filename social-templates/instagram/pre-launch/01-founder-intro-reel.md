@@ -1,6 +1,6 @@
 # Instagram — Founder Intro Reel (Week -8)
 
-**Use when:** First reel on @getamia. Cross-post the TikTok founder intro with minor adjustments.
+**Use when:** First reel on @amiadating. Cross-post the TikTok founder intro with minor adjustments.
 **Length:** 60 seconds (Instagram caps reels well below TikTok's longer formats; recut accordingly).
 **Format:** Vertical, face-to-camera, no music (or very low ambient).
 

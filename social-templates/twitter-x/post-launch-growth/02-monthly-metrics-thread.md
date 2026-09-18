@@ -61,4 +61,4 @@
 - Commit to specific metrics — don't swap which ones you share month to month.
 - Numbers that are < 50 in a single city should not be shared per-city (privacy / safety).
 - Have an advisor review before posting if any number is sensitive.
-- This thread should also exist as a blog post that lives at amia.app/writing.
+- This thread should also exist as a blog post that lives at amiadating.com/writing.

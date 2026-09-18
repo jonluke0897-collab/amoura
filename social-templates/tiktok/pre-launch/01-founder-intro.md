@@ -1,6 +1,6 @@
 # TikTok — Founder Intro (Week -8)
 
-**Use when:** Your very first post on the @getamia or founder TikTok handle. Sets the posture for everything that follows.
+**Use when:** Your very first post on the @amiadating or founder TikTok handle. Sets the posture for everything that follows.
 **Length:** 60–75 seconds, face-to-camera, no music, no cuts mid-sentence.
 
 ---

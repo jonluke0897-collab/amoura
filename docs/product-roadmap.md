@@ -471,7 +471,7 @@
 
 - [ ] **TASK-086** — Build the marketing landing page (Next.js, separate repo or `/web`)
   Files: `web/` (Next.js app), or separate repo `amoura-web`
-  Notes: Simple responsive landing page at amia.app. Sections: hero with app screenshots + "Join the beta — Austin, Brooklyn, Oakland", 3-feature strip (like-with-comment, T4T toggle, verified by default), positioning + how-it-works (short, honest: "Where attraction is mutual — and fetishization doesn't work here"), beta signup form (email + city dropdown), FAQ, footer with privacy/terms. Submit stores email in a Convex `waitlist` table. Verify: page loads < 1s; signup writes to Convex.
+  Notes: Simple responsive landing page at amiadating.com. Sections: hero with app screenshots + "Join the beta — Austin, Brooklyn, Oakland", 3-feature strip (like-with-comment, T4T toggle, verified by default), positioning + how-it-works (short, honest: "Where attraction is mutual — and fetishization doesn't work here"), beta signup form (email + city dropdown), FAQ, footer with privacy/terms. Submit stores email in a Convex `waitlist` table. Verify: page loads < 1s; signup writes to Convex.
 
 - [ ] **TASK-087** — App store assets: screenshots, icon, privacy labels, listing copy
   Files: `assets/store/` (screenshots), `app.config.ts` (icon), App Store Connect, Play Console
@@ -487,7 +487,7 @@
 
 - [ ] **TASK-090** — Customer support channel setup
   Files: `src/features/settings/Support.tsx`, external (Front, Help Scout, or similar)
-  Notes: In-app "Contact support" opens email to support@amoura.app (set up a shared inbox — Front/Help Scout/basic Gmail to start). SLA: 24h for general, 4h for safety issues. Include a "Safety issue" category that routes to a higher-priority queue. Verify: sending a test support request from the app arrives at the inbox.
+  Notes: In-app "Contact support" opens email to support@amiadating.com (set up a shared inbox — Front/Help Scout/basic Gmail to start). SLA: 24h for general, 4h for safety issues. Include a "Safety issue" category that routes to a higher-priority queue. Verify: sending a test support request from the app arrives at the inbox.
 
 - [ ] **TASK-091** — Pre-launch QA checklist: full regression on all flows
   Files: `docs/qa-checklist.md`, `docs/test-scripts/`

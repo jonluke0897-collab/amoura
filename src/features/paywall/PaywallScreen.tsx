@@ -68,8 +68,8 @@ const FEATURES: { label: string; description: string }[] = [
   { label: 'Typing indicators', description: "See when they're writing back." },
 ];
 
-const TERMS_URL = 'https://amoura.app/terms';
-const PRIVACY_URL = 'https://amoura.app/privacy';
+const TERMS_URL = 'https://amiadating.com/terms';
+const PRIVACY_URL = 'https://amiadating.com/privacy';
 
 export function PaywallScreen() {
   const router = useRouter();

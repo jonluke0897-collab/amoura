@@ -34,6 +34,6 @@ Pull specific paragraphs from the essay and quote-tweet the lead tweet with them
 
 ## Notes
 
-- Publish the essay on your own blog (amia.app/writing or your personal site), not Medium or Substack as primary — owned property compounds.
+- Publish the essay on your own blog (amiadating.com/writing or your personal site), not Medium or Substack as primary — owned property compounds.
 - Have an advisor review the essay before publishing.
 - Don't tweet the link more than 3x total in the first week.

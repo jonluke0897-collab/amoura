@@ -18,7 +18,7 @@
 > Reviewer rubric (from `docs/product-vision.md` § 4 Brand Anti-Patterns):
 > - No shame, no friction-blame, no "you did something wrong" tone.
 > - Plain language, no legalese, no jargon.
-> - Trans-first: never put cis users' comfort ahead of trans women's safety.
+> - Safety-first: never put cis users' comfort ahead of trans women's safety.
 > - Surface-and-review beats silent suppression. Don't lie about what we do.
 
 ---
@@ -148,7 +148,7 @@ the existing Unmatch flow in `ChatHeader.tsx`).
 ### Tips
 1. **Trust your gut.** If a profile or message feels off, it usually is. You can leave a chat at any time, and you don't owe anyone an explanation.
 2. **Meet in public the first time.** Coffee, a walk, somewhere with people around. Tell a friend where you're going and when you expect to be home.
-3. **Hold private info private.** No need to share your full name, address, or workplace until you actually trust someone. Amoura never shows your last name.
+3. **Hold private info private.** No need to share your full name, address, or workplace until you actually trust someone. Amia never shows your last name.
 4. **Block and report freely.** Blocking is bidirectional and instant. Reports are reviewed within 48 hours. Either tool is yours to use whenever you need it — no need to be sure or apologise.
 5. **You set the pace.** You don't have to reply, meet up, share photos, or explain yourself. Anyone who pushes against that isn't a fit, full stop.
 

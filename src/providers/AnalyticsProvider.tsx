@@ -8,7 +8,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   // Bootstrap fallback: if PostHog key isn't set yet, skip the provider.
   if (!apiKey) {
     if (__DEV__) {
-      console.warn('[Amoura] EXPO_PUBLIC_POSTHOG_KEY missing — analytics are disabled.');
+      console.warn('[Amia] EXPO_PUBLIC_POSTHOG_KEY missing — analytics are disabled.');
     }
     return <>{children}</>;
   }

@@ -6,7 +6,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 /**
  * Persona deep-link landing route. Persona's hosted flow redirects to
- * `amoura://verify-id-return?inquiry-id=...&status=completed` when the
+ * `amia://verify-id-return?inquiry-id=...&status=completed` when the
  * inquiry finishes. On iOS the redirect closes SFAuthenticationSession
  * inline and we never reach this route. On Android, the OS intent
  * dispatch races the Custom Tab callback and usually wins — when it

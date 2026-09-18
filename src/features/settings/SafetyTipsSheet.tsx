@@ -29,7 +29,7 @@ type CrisisResource = {
  *
  * Hyperlinks open in the system browser via Linking — we deliberately
  * do NOT in-app-browser these because users in crisis benefit from the
- * full browser tab persisting if they switch away from Amoura.
+ * full browser tab persisting if they switch away from Amia.
  */
 const TIPS: readonly SafetyTip[] = [
   {
@@ -42,7 +42,7 @@ const TIPS: readonly SafetyTip[] = [
   },
   {
     heading: 'Hold private info private.',
-    body: 'No need to share your full name, address, or workplace until you actually trust someone. Amoura never shows your last name.',
+    body: 'No need to share your full name, address, or workplace until you actually trust someone. Amia never shows your last name.',
   },
   {
     heading: 'Block and report freely.',

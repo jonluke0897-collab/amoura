@@ -83,7 +83,7 @@ export function NoCityYet({ onSetCity }: { onSetCity?: () => void }) {
         Where are you based?
       </Text>
       <Text variant="body" className="text-base text-plum-600 mt-2 text-center">
-        Amoura shows you people in your city. We never store your exact location — just the city name.
+        Amia shows you people in your city. We never store your exact location — just the city name.
       </Text>
       {onSetCity && (
         <Button

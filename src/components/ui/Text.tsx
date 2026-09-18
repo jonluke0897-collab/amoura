@@ -10,11 +10,11 @@ const variantClasses: Record<Variant, string> = {
   mono: 'font-mono text-plum-900',
 };
 
-export type AmouraTextProps = TextProps & {
+export type AmiaTextProps = TextProps & {
   variant?: Variant;
   className?: string;
 };
 
-export function Text({ variant = 'body', className, ...rest }: AmouraTextProps) {
+export function Text({ variant = 'body', className, ...rest }: AmiaTextProps) {
   return <RNText className={cn(variantClasses[variant], className)} {...rest} />;
 }

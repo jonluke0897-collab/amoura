@@ -10,7 +10,7 @@ WebBrowser.maybeCompleteAuthSession();
 // Shared deep-link target used by the OAuth providers (Apple / Google).
 // Email-code flow doesn't need a redirect URL — verification happens in-app
 // via the attempted code, with no browser bounce.
-const OAUTH_REDIRECT_URL = Linking.createURL('/', { scheme: 'amoura' });
+const OAUTH_REDIRECT_URL = Linking.createURL('/', { scheme: 'amia' });
 
 export type OAuthMethod = 'apple' | 'google';
 
@@ -78,9 +78,9 @@ function devWarnAuthError(scope: string, e: unknown) {
   if (!__DEV__) return;
   const summary = summarizeClerkError(e);
   if (summary) {
-    console.warn(`[Amoura] ${scope} — Clerk API error`, summary);
+    console.warn(`[Amia] ${scope} — Clerk API error`, summary);
   } else {
-    console.warn(`[Amoura] ${scope} — non-Clerk error`, e);
+    console.warn(`[Amia] ${scope} — non-Clerk error`, e);
   }
 }
 
@@ -91,7 +91,7 @@ function devWarnAuthError(scope: string, e: unknown) {
 // the PostHog funnel.
 function devWarnIncomplete(scope: string, clerkStatus: string) {
   if (!__DEV__) return;
-  console.warn(`[Amoura] ${scope} — non-complete Clerk status`, { clerkStatus });
+  console.warn(`[Amia] ${scope} — non-complete Clerk status`, { clerkStatus });
 }
 
 export function useOAuthFlow() {

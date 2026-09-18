@@ -11,7 +11,7 @@ try {
   client = new ConvexReactClient(env.convexUrl);
 } catch {
   if (__DEV__) {
-    console.warn('[Amoura] EXPO_PUBLIC_CONVEX_URL missing — Convex is disabled.');
+    console.warn('[Amia] EXPO_PUBLIC_CONVEX_URL missing — Convex is disabled.');
   }
 }
 

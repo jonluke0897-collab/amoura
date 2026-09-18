@@ -15,10 +15,13 @@ import { computeAge } from './lib/age';
 import { isBlockedBetween } from './lib/blocks';
 import { LIKE_COMMENT_MAX_CHARS, LIKE_COMMENT_MIN_CHARS } from './lib/likeBounds';
 
-// Per PRD § 2.5 Security. Free tier gets 100/day, paid 1000/day. The roadmap
-// (TASK-048) mentions 8/day but that appears to be a paywall-messaging number
-// — 100 is the technical cap. Flagged in the Phase 4 PR for explicit sign-off.
-const FREE_LIKES_PER_DAY = 100;
+// Per PRD § 6 FR-025. Free tier sends up to 10 likes/day; paid is
+// effectively unlimited (1000/day is the abuse ceiling — bot-shaped
+// throughput, not human). Phase 6 lowered the free tier from the
+// Phase-4 stub (100) per the resolved discrepancy in
+// `plans/plan-phase-6-from-gentle-hearth.md`. Roadmap TASK-074's "8/day"
+// was a draft number; FR-025 wins.
+const FREE_LIKES_PER_DAY = 10;
 const PAID_LIKES_PER_DAY = 1000;
 
 
@@ -200,24 +203,54 @@ export const send = mutation({
   },
 });
 
-type InboundLikeItem = {
-  likeId: Id<'likes'>;
-  fromUserId: Id<'users'>;
-  fromDisplayName: string;
-  fromAge: number | null;
-  fromPhotoUrl: string | null;
-  fromCity: string | null;
-  fromPronouns: string[];
-  comment: string;
-  targetType: 'prompt' | 'photo';
-  targetDescription: string;
-  createdAt: number;
-};
+/**
+ * Inbound-like row shape. Two variants:
+ *
+ *   - `redacted: false` (Pro tier): full sender details so the
+ *     LikeCard can render avatar, age, pronouns, comment, etc.
+ *   - `redacted: true` (free tier): only the like ID and timestamp.
+ *     The card renders a blurred placeholder; the full details
+ *     unblur when the viewer subscribes (server immediately returns
+ *     unredacted rows once `subscriptions.me.isActive` flips).
+ *
+ * The shape stays a single discriminated union rather than two
+ * separate queries because (a) free users still need pagination
+ * cursors that match the Pro cursor space (so the inbox count
+ * matches the inbox length), and (b) the inbox is reactive — a
+ * mid-session upgrade should re-query the same endpoint and get
+ * unredacted rows without the client switching APIs.
+ */
+type InboundLikeItem =
+  | {
+      redacted: false;
+      likeId: Id<'likes'>;
+      fromUserId: Id<'users'>;
+      fromDisplayName: string;
+      fromAge: number | null;
+      fromPhotoUrl: string | null;
+      fromCity: string | null;
+      fromPronouns: string[];
+      comment: string;
+      targetType: 'prompt' | 'photo';
+      targetDescription: string;
+      createdAt: number;
+    }
+  | {
+      redacted: true;
+      likeId: Id<'likes'>;
+      targetType: 'prompt' | 'photo';
+      createdAt: number;
+    };
 
 /**
  * Likes Inbox query. Returns pending likes sent to the caller, sorted
  * newest-first. Joins sender's display info and a short target description
  * so the LikeCard can render without per-row fan-out on the client.
+ *
+ * Free-tier behavior (Phase 6 TASK-074): rows come back redacted —
+ * sender display details are stripped server-side so a malicious
+ * client can't peek at Pro-only data. Block / expiration filters
+ * still run for free-tier rows so the count is accurate.
  *
  * Expired likes are filtered at read time (schema has `expiresAt`); a
  * scheduled cron to actively flip status='expired' is deferred per the
@@ -229,6 +262,7 @@ export const listInbound = query({
     const { user } = await requireUserAndProfile(ctx);
     const now = Date.now();
     const numItems = args.paginationOpts.numItems;
+    const isPro = await hasActiveSubscription(ctx, user._id);
 
     // Skip-forward pagination: resolveInboundLike drops expired / blocked
     // / inactive senders, so a naive single .paginate() can return an
@@ -256,7 +290,7 @@ export const listInbound = query({
         .paginate({ ...args.paginationOpts, cursor, numItems: remaining });
       const resolved = await Promise.all(
         batch.page.map((like) =>
-          resolveInboundLike(ctx, user._id, like, now),
+          resolveInboundLike(ctx, user._id, like, now, isPro),
         ),
       );
       for (const row of resolved) {
@@ -267,7 +301,7 @@ export const listInbound = query({
       isDone = batch.isDone;
     }
 
-    return { page, isDone, continueCursor };
+    return { page, isDone, continueCursor, isPro };
   },
 });
 
@@ -276,19 +310,39 @@ async function resolveInboundLike(
   viewerId: Id<'users'>,
   like: Doc<'likes'>,
   now: number,
+  isPro: boolean,
 ): Promise<InboundLikeItem | null> {
   if (like.expiresAt <= now) return null;
 
-  const [fromUser, blocked, fromProfile] = await Promise.all([
+  // Always run the sender + block lookups — even for free-tier viewers,
+  // so we don't surface a redacted row from a banned/blocked sender.
+  // The work is dominated by the targetDescription join, which we skip
+  // for redacted rows since the client doesn't render it.
+  const [fromUser, blocked] = await Promise.all([
     ctx.db.get(like.fromUserId),
     isBlockedBetween(ctx, viewerId, like.fromUserId),
-    ctx.db
-      .query('profiles')
-      .withIndex('by_user', (q) => q.eq('userId', like.fromUserId))
-      .unique(),
   ]);
   if (!fromUser || fromUser.accountStatus !== 'active') return null;
   if (blocked) return null;
+
+  if (!isPro) {
+    // Free tier: hand back the bare minimum the LikeCard needs to
+    // render a blurred placeholder. NO sender info, NO comment, NO
+    // photo URL. The client cannot reconstruct what's missing —
+    // server-side redaction is the gate.
+    return {
+      redacted: true,
+      likeId: like._id,
+      targetType: like.targetType,
+      createdAt: like.createdAt,
+    };
+  }
+
+  // Pro: fetch the full sender + target join.
+  const fromProfile = await ctx.db
+    .query('profiles')
+    .withIndex('by_user', (q) => q.eq('userId', like.fromUserId))
+    .unique();
 
   const [photoUrl, targetDescription] = await Promise.all([
     fromProfile ? firstPhotoUrl(ctx, fromProfile._id) : Promise.resolve(null),
@@ -296,6 +350,7 @@ async function resolveInboundLike(
   ]);
 
   return {
+    redacted: false,
     likeId: like._id,
     fromUserId: like.fromUserId,
     fromDisplayName: fromUser.displayName,

@@ -57,7 +57,7 @@ export const seedPrompts = internalMutation({
         question: p.question,
         category: p.category,
         isActive: true,
-        createdBy: 'amoura-placeholder',
+        createdBy: 'amia-placeholder',
         createdAt: now,
       });
       inserted += 1;

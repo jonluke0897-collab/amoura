@@ -9,6 +9,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { X } from 'lucide-react-native';
 import { useMutation } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { api } from '~/convex/_generated/api';
 import type { Id } from '~/convex/_generated/dataModel';
 import {
@@ -59,8 +60,15 @@ export function LikeWithCommentModal({
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When the server returns RATE_LIMITED:likes-daily we surface a "Go
+  // Pro" CTA next to the error copy. The flag distinguishes that
+  // paywallable error from generic ones (moderation, network, etc.)
+  // so we don't show the upgrade button on, say, a comment-too-short
+  // rejection.
+  const [paywallCta, setPaywallCta] = useState(false);
   const sendLike = useMutation(api.likes.send);
   const track = useTrack();
+  const router = useRouter();
 
   // Reset local state whenever the sheet opens so a previous draft doesn't
   // bleed into a new session. We reset on visible transitions rather than
@@ -69,6 +77,7 @@ export function LikeWithCommentModal({
     if (visible) {
       setText('');
       setError(null);
+      setPaywallCta(false);
       setSubmitting(false);
     }
   }, [visible]);
@@ -124,9 +133,18 @@ export function LikeWithCommentModal({
     } catch (e) {
       const rawMessage = e instanceof Error ? e.message : String(e);
       setError(mapErrorToCopy(rawMessage));
+      // Toggle the upgrade CTA only for the daily-cap error. Any other
+      // rejection (moderation, validation, server) clears it so a
+      // retry that hits a different error doesn't leave a stale button.
+      setPaywallCta(rawMessage.startsWith('RATE_LIMITED:likes-daily'));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleGoPro() {
+    router.push('/paywall?trigger=daily_cap' as never);
+    onClose();
   }
 
   return (
@@ -215,6 +233,16 @@ export function LikeWithCommentModal({
           </View>
         </View>
         <View className="px-5 pt-3 pb-3">
+          {paywallCta && (
+            <View className="mb-2">
+              <Button
+                label="Go Pro for more likes"
+                variant="secondary"
+                onPress={handleGoPro}
+                disabled={submitting}
+              />
+            </View>
+          )}
           <Button
             label="Send like"
             onPress={handleSubmit}
@@ -235,7 +263,7 @@ export function LikeWithCommentModal({
  */
 function mapErrorToCopy(raw: string): string {
   if (raw.startsWith('RATE_LIMITED:likes-daily')) {
-    return "You've used your daily likes. Come back tomorrow — or go Premium for more.";
+    return "You've used your daily likes. Come back tomorrow — or go Pro for more.";
   }
   if (raw.startsWith('RATE_LIMITED:')) {
     return "You've hit a daily limit. Try again later.";

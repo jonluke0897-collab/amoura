@@ -94,7 +94,7 @@ export function LikeCard({
   return (
     <View className="mx-4 my-3 rounded-md bg-cream-50 border border-plum-50 shadow-card overflow-hidden">
       <View className="flex-row p-4">
-        {/* Free tier gets reduced photo opacity + "Premium" overlay so the
+        {/* Free tier gets reduced photo opacity + "Pro" overlay so the
             silhouette is visible but not identifiable. No native blur
             dependency for one screen. */}
         <View className="relative">
@@ -110,7 +110,7 @@ export function LikeCard({
               pointerEvents="none"
             >
               <Text variant="caption" className="text-[10px] text-plum-900">
-                Premium
+                Pro
               </Text>
             </View>
           )}
@@ -160,13 +160,13 @@ export function LikeCard({
             </Text>
           ) : (
             // Comment is paywalled — showing it for free defeats the point
-            // of "Go Premium to see what they said". Italicize so it reads
+            // of "Go Pro to see what they said". Italicize so it reads
             // as a placeholder, not a real quote.
             <Text
               variant="body"
               className="text-base text-plum-400 leading-6 italic"
             >
-              Their comment is hidden — go Premium to read it.
+              Their comment is hidden — go Pro to read it.
             </Text>
           )}
         </View>

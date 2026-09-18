@@ -1,9 +1,9 @@
 import type { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  name: 'Amoura',
-  slug: 'amoura',
-  scheme: 'amoura',
+  name: 'Amia',
+  slug: 'amia',
+  scheme: 'amia',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/IconOnly_Transparent_NoBuffer.png',
@@ -15,7 +15,7 @@ const config: ExpoConfig = {
     backgroundColor: '#FAFAFF',
   },
   ios: {
-    bundleIdentifier: 'com.amoura.app',
+    bundleIdentifier: 'com.amiadating.app',
     supportsTablet: false,
     // Single NSCameraUsageDescription that covers both flows. iOS only
     // supports one camera-permission string per app — when both
@@ -25,11 +25,11 @@ const config: ExpoConfig = {
     // configs below intentionally drop their per-plugin overrides.
     infoPlist: {
       NSCameraUsageDescription:
-        'Amoura uses the camera to take new profile photos and to capture quick verification selfies. Photos are only uploaded when you choose to share them; selfies are deleted right after we check them.',
+        'Amia uses the camera to take new profile photos and to capture quick verification selfies. Photos are only uploaded when you choose to share them; selfies are deleted right after we check them.',
     },
   },
   android: {
-    package: 'com.amoura.app',
+    package: 'com.amiadating.app',
     adaptiveIcon: {
       foregroundImage: './assets/IconOnly_Transparent_NoBuffer.png',
       backgroundColor: '#FAFAFF',
@@ -46,7 +46,7 @@ const config: ExpoConfig = {
       'expo-image-picker',
       {
         photosPermission:
-          'Amoura needs access to your photos so you can share your best self — only the ones you pick are uploaded.',
+          'Amia needs access to your photos so you can share your best self — only the ones you pick are uploaded.',
         // cameraPermission intentionally omitted — the merged
         // NSCameraUsageDescription lives in ios.infoPlist above so the
         // two camera-using plugins can't fight over the same key.
@@ -72,7 +72,7 @@ const config: ExpoConfig = {
         // NSLocationWhenInUseUsageDescription on iOS, which is what the
         // system surfaces for a one-shot city resolution.
         locationWhenInUsePermission:
-          'Amoura uses your location only to detect your city. We store the city name — never your exact coordinates.',
+          'Amia uses your location only to detect your city. We store the city name — never your exact coordinates.',
       },
     ],
     [

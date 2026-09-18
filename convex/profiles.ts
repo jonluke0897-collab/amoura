@@ -7,6 +7,7 @@ import { requireUserAndProfile } from './lib/currentUser';
 import { canonicalizeCity } from './lib/canonicalizeCity';
 import { computeAge } from './lib/age';
 import { getBlockedUserIds } from './lib/blocks';
+import { hasActiveSubscription } from './lib/rateLimit';
 
 type OnboardingStep =
   | 'identity'
@@ -430,9 +431,13 @@ export const getMinePreferences = query({
  *   page may be shorter than the requested `numItems`. Callers must continue
  *   paginating until `isDone`.
  * - `verifiedOnly` filters to candidates with an approved photo verification
- *   row (`verifications` type='photo', status='approved'). Phase 6 will
- *   gate this behind a paid-tier paywall; for now the filter applies for
- *   anyone toggling it on. See Phase 5 TASK-062.
+ *   row (`verifications` type='photo', status='approved'). Phase 6 TASK-074
+ *   gates this behind the paid-tier entitlement: a free-tier viewer who
+ *   tries to set `verifiedOnly: true` (or who has it persisted from a
+ *   prior subscription) gets a `PAYWALL:verified_filter` error so the
+ *   FilterSheet can route them to the paywall. The persisted preference
+ *   on `profiles.verifiedOnly` is intentionally NOT cleared on
+ *   downgrade — the user gets their old filter back when they re-up.
  */
 export const listFeed = query({
   args: {
@@ -474,7 +479,36 @@ export const listFeed = query({
     // Default from the viewer's stored preference, mirroring the t4tOnly
     // pattern. The FilterSheet writes this server-side via updatePreferences
     // and BrowseFeed passes empty filters, so the lookup happens here.
-    const verifiedOnly = filters.verifiedOnly ?? viewerProfile.verifiedOnly ?? false;
+    const requestedVerifiedOnly =
+      filters.verifiedOnly ?? viewerProfile.verifiedOnly ?? false;
+
+    // Phase 6 TASK-074: gate verified-only behind Pro. Two cases:
+    //
+    //   - Explicit request (`filters.verifiedOnly === true`): hard-fail
+    //     with `PAYWALL:verified_filter` so the FilterSheet's apply
+    //     handler can push the paywall. The toggle is reverted client-
+    //     side when the error returns.
+    //
+    //   - Stored preference from a prior subscription, no explicit
+    //     request: silently ignore the stored bit so the feed still
+    //     loads. We do NOT throw — that would brick the BrowseFeed for
+    //     anyone who lapsed. The user re-subscribes → preference takes
+    //     effect again with no extra action.
+    //
+    // The entitlement check runs only when the toggle would actually
+    // fire, so the daily-feed query isn't doing a per-call
+    // subscriptions lookup for the 99% case where the filter is off.
+    let verifiedOnly = requestedVerifiedOnly;
+    if (verifiedOnly) {
+      const isPro = await hasActiveSubscription(ctx, viewer._id);
+      if (!isPro) {
+        if (filters.verifiedOnly === true) {
+          throw new Error('PAYWALL:verified_filter');
+        }
+        // Stored-pref fallback — don't throw, just disable the filter.
+        verifiedOnly = false;
+      }
+    }
 
     // Empty arrays collapse to "no filter" — otherwise deselecting all
     // intentions in the FilterSheet would silently zero out the feed.

@@ -63,7 +63,7 @@ export async function promptForPushPermissionIfNeeded(): Promise<void> {
     await OneSignal.Notifications.requestPermission(true);
   } catch (err) {
     if (__DEV__) {
-      console.warn('[Amoura] OneSignal permission prompt failed', err);
+      console.warn('[Amia] OneSignal permission prompt failed', err);
     }
   }
 }
@@ -105,7 +105,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   if (!appId) {
     if (__DEV__) {
       console.warn(
-        '[Amoura] EXPO_PUBLIC_ONESIGNAL_APP_ID missing — push is disabled.',
+        '[Amia] EXPO_PUBLIC_ONESIGNAL_APP_ID missing — push is disabled.',
       );
     }
     return <>{children}</>;

@@ -1,6 +1,6 @@
 # AWS Rekognition Lambda — contract spec
 
-> Operator runbook for the external Lambda that backs Amoura's photo
+> Operator runbook for the external Lambda that backs Amia's photo
 > verification (TASK-061). Deploy this once per environment, set the
 > env vars in Convex, and the `verificationActions.startPhoto` action
 > will route requests through it. The Lambda is the only place the AWS

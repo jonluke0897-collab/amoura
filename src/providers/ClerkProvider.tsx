@@ -10,7 +10,7 @@ export function ClerkProvider({ children }: { children: ReactNode }) {
   // so the app still boots for UI/design QA. Once the .env is populated, Clerk activates.
   if (!key) {
     if (__DEV__) {
-      console.warn('[Amoura] EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY missing — auth is disabled.');
+      console.warn('[Amia] EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY missing — auth is disabled.');
     }
     return <>{children}</>;
   }

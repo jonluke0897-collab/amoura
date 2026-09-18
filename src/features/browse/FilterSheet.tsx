@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { api } from '~/convex/_generated/api';
 import { Text } from '~/src/components/ui/Text';
@@ -60,7 +61,15 @@ export type FilterSheetProps = {
 export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
   const prefs = useQuery(api.profiles.getMinePreferences);
   const updatePreferences = useMutation(api.profiles.updatePreferences);
+  const me = useQuery(api.users.me);
   const track = useTrack();
+  const router = useRouter();
+  // Phase 6 TASK-074: server gates `verifiedOnly` behind Pro and
+  // throws PAYWALL:verified_filter for free users. We mirror the gate
+  // client-side so the toggle never visibly flips on for a free user
+  // (which would otherwise feel like a bait-and-switch when Apply
+  // errors). Source of truth is still the server; this is UX polish.
+  const isPaidTier = me?.hasActiveSubscription ?? false;
 
   const [ageMin, setAgeMin] = useState(AGE_MIN);
   const [ageMax, setAgeMax] = useState(AGE_MAX);
@@ -93,7 +102,13 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
       setIntentions(sanitizeIntentions(prefs.intentions));
       setT4tOnly(prefs.t4tPreference === 't4t-only');
       setT4tTouched(false);
-      setVerifiedOnly(prefs.verifiedOnly);
+      // Lapsed-subscriber edge case: a user who had `verifiedOnly:
+      // true` stored from a prior subscription period would see the
+      // toggle visibly ON even though the server now ignores it. Show
+      // OFF for free users so the visual state matches what the feed
+      // is actually doing. The stored bit is preserved server-side and
+      // re-applies the next time they upgrade.
+      setVerifiedOnly(prefs.verifiedOnly && isPaidTier);
       setVerifiedTouched(false);
       setError(null);
     }
@@ -320,9 +335,26 @@ export function FilterSheet({ visible, onClose, onApplied }: FilterSheetProps) {
             <Section title="Verified only">
               <ToggleRow
                 label="Only photo-verified profiles"
-                description="Hide profiles that haven’t completed photo verification yet."
+                description={
+                  isPaidTier
+                    ? 'Hide profiles that haven’t completed photo verification yet.'
+                    : 'Pro feature — hide profiles that haven’t completed photo verification yet.'
+                }
                 value={verifiedOnly}
                 onValueChange={(v) => {
+                  // Free users can't actually enable the filter — server
+                  // would 401 on Apply. Intercept here, route to the
+                  // paywall, and snap the toggle back so the visual
+                  // state matches what the server would accept.
+                  if (v && !isPaidTier) {
+                    setVerifiedOnly(false);
+                    setVerifiedTouched(false);
+                    onClose();
+                    router.push(
+                      '/paywall?trigger=verified_filter' as never,
+                    );
+                    return;
+                  }
                   setVerifiedOnly(v);
                   setVerifiedTouched(true);
                 }}

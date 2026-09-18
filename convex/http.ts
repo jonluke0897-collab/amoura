@@ -22,6 +22,38 @@ function timingSafeStringEqual(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
+/**
+ * Recursively strip object keys that start with `$`. Convex's value
+ * serializer rejects any field named with a leading `$` ("reserved")
+ * even when the receiving mutation declares `args: { event: v.any() }`
+ * — the validation runs at the transport layer before the mutation
+ * sees the value.
+ *
+ * RevenueCat's webhook payload nests subscriber attributes under
+ * `event.subscriber_attributes` with keys like `$displayName`,
+ * `$email`, `$apnsTokens` (their convention for reserved attrs). We
+ * don't read any of those, so dropping them is safe — and keeps the
+ * payload's other useful fields intact for `handleWebhook` to
+ * consume.
+ *
+ * Also strips arrays of objects (rare in RC payloads but possible).
+ * Primitives pass through unchanged.
+ */
+function stripDollarKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(stripDollarKeys);
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k.startsWith('$')) continue;
+      out[k] = stripDollarKeys(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 async function hmacSha256Hex(secret: string, message: string): Promise<string> {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -263,6 +295,74 @@ http.route({
     });
 
     return new Response(null, { status: 200 });
+  }),
+});
+
+/**
+ * RevenueCat webhook — Phase 6 TASK-073.
+ *
+ * RevenueCat's webhook auth model is a static `Authorization: Bearer
+ * <secret>` header (not HMAC-signed payloads like Persona/Stripe). We
+ * compare the secret with `timingSafeStringEqual` defined above to
+ * avoid the timing-attack surface a string `===` would expose.
+ *
+ * Payload shape: `{ api_version, event: { type, app_user_id, product_id,
+ * entitlement_ids, ..., store } }`. Full reference at
+ * https://www.revenuecat.com/docs/webhooks. We hand the inner `event`
+ * object to `internal.subscriptions.handleWebhook`, which validates
+ * the type whitelist and upserts the row.
+ *
+ * Always responding 200 once the secret is verified means RC won't
+ * retry on app-level failures (user not found, unsupported store).
+ * Those soft-failures are returned in the response body for log
+ * visibility but don't gate webhook delivery — see the structured
+ * `{ ok, reason }` object handleWebhook returns.
+ */
+http.route({
+  path: '/revenuecat-webhook',
+  method: 'POST',
+  handler: httpAction(async (ctx, req) => {
+    const secret = process.env.REVENUECAT_WEBHOOK_SECRET;
+    if (!secret) {
+      return new Response('Missing REVENUECAT_WEBHOOK_SECRET', { status: 500 });
+    }
+
+    const auth = req.headers.get('Authorization');
+    if (!auth) {
+      return new Response('Missing Authorization header', { status: 401 });
+    }
+    const expected = `Bearer ${secret}`;
+    if (!timingSafeStringEqual(auth, expected)) {
+      return new Response('Invalid signature', { status: 401 });
+    }
+
+    let body: { event?: unknown };
+    try {
+      body = (await req.json()) as { event?: unknown };
+    } catch {
+      return new Response('Invalid JSON body', { status: 400 });
+    }
+    if (!body || typeof body !== 'object' || !body.event) {
+      return new Response('Missing event in payload', { status: 400 });
+    }
+
+    // Sanitize the payload before forwarding to the mutation.
+    // RC's `subscriber_attributes` block has `$`-prefixed keys
+    // ($displayName, $email, $apnsTokens, ...) that Convex's value
+    // serializer rejects with "Field name $X starts with a '$', which
+    // is reserved." Strip them recursively — handleWebhook never reads
+    // those fields anyway.
+    const sanitizedEvent = stripDollarKeys(body.event);
+    const result = await ctx.runMutation(
+      internal.subscriptions.handleWebhook,
+      { event: sanitizedEvent },
+    );
+    // 200 even on soft-fail — see the doc-comment above. Status code
+    // is what RC keys retries off of; the body is for our logs.
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }),
 });
 

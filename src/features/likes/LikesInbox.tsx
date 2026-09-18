@@ -18,6 +18,10 @@ export function LikesInbox() {
     { initialNumItems: PAGE_SIZE },
   );
 
+  // Server is the source of truth for tier (it redacts rows for free
+  // users regardless of what the client claims). We still compute
+  // `isPaidTier` here for the client-side UI banner — the value comes
+  // from the same `subscriptions` lookup so the two stay aligned.
   const isPaidTier = me?.hasActiveSubscription ?? false;
 
   // Loading state — both queries resolve in parallel; wait for both so the
@@ -56,15 +60,13 @@ export function LikesInbox() {
             {inbox.results.length === 1 ? ' person' : ' people'} liked you.
           </Text>
           <Text variant="body" className="text-sm text-plum-900 mt-1 mb-3">
-            Go Premium to see who they are and what they said.
+            Go Pro to see who they are and what they said.
           </Text>
-          {/* Paywall nav lands in Phase 6 (RevenueCat). Until then the
-              button is cosmetic — kept visible so the design reads as
-              complete, and wired to a /paywall route that 404s gracefully
-              for now. */}
           <Button
             label="Unlock who liked you"
-            onPress={() => router.push('/paywall' as never)}
+            onPress={() =>
+              router.push('/paywall?trigger=likes_inbox' as never)
+            }
           />
         </View>
       )}
@@ -76,21 +78,46 @@ export function LikesInbox() {
           if (inbox.status === 'CanLoadMore') inbox.loadMore(PAGE_SIZE);
         }}
         onEndReachedThreshold={0.4}
-        renderItem={({ item }) => (
-          <LikeCard
-            likeId={item.likeId}
-            fromDisplayName={item.fromDisplayName}
-            fromAge={item.fromAge}
-            fromPhotoUrl={item.fromPhotoUrl}
-            fromCity={item.fromCity}
-            fromPronouns={item.fromPronouns}
-            comment={item.comment}
-            targetType={item.targetType}
-            targetDescription={item.targetDescription}
-            isPaidTier={isPaidTier}
-            onMatched={(matchId) => router.push(`/chat/${matchId}` as never)}
-          />
-        )}
+        renderItem={({ item }) => {
+          // Server returns a discriminated union: `redacted: true` rows
+          // strip every sender field; `redacted: false` rows have the
+          // full join. The LikeCard accepts placeholder values for the
+          // free-tier render so the card width / layout matches the
+          // unredacted version exactly — important so the UI doesn't
+          // jump on upgrade.
+          if (item.redacted) {
+            return (
+              <LikeCard
+                likeId={item.likeId}
+                fromDisplayName="Someone"
+                fromAge={null}
+                fromPhotoUrl={null}
+                fromCity={null}
+                fromPronouns={[]}
+                comment=""
+                targetType={item.targetType}
+                targetDescription=""
+                isPaidTier={false}
+                onMatched={(matchId) => router.push(`/chat/${matchId}` as never)}
+              />
+            );
+          }
+          return (
+            <LikeCard
+              likeId={item.likeId}
+              fromDisplayName={item.fromDisplayName}
+              fromAge={item.fromAge}
+              fromPhotoUrl={item.fromPhotoUrl}
+              fromCity={item.fromCity}
+              fromPronouns={item.fromPronouns}
+              comment={item.comment}
+              targetType={item.targetType}
+              targetDescription={item.targetDescription}
+              isPaidTier
+              onMatched={(matchId) => router.push(`/chat/${matchId}` as never)}
+            />
+          );
+        }}
       />
     </View>
   );

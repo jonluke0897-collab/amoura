@@ -1,10 +1,10 @@
-# PRD — Amoura
+# PRD — Amia
 
 ## 1. Overview
 
 ### Product Summary
 
-**Amoura** is a trans-first mobile dating app where trans women and their community find real connection, not fetishization. The product centers trans women and the T4T community (trans men, non-binary, and gender-diverse folks) at its cultural core, and welcomes respectful cis men and cis queer women as guests. The core experience is a Hinge-style prompt-and-match flow where every conversation begins by liking and commenting on a specific prompt or photo — generic swipes and "hey"s are architecturally impossible.
+**Amia** is a modern dating app for trans women and the people who want to date them, where connection is real and fetishization is filtered out by design. The product centers trans women and the T4T community (trans men, non-binary, and gender-diverse folks) at its cultural core, and welcomes respectful cis men and cis queer women. The core experience is a Hinge-style prompt-and-match flow where every conversation begins by liking and commenting on a specific prompt or photo — generic swipes and "hey"s are architecturally impossible.
 
 ### Objective
 
@@ -12,7 +12,7 @@ This PRD covers the Balanced MVP scope defined in `docs/product-vision.md` § 3 
 
 ### Market Differentiation
 
-Three stacked technical commitments drive the differentiation. **Trans-first by design** means identity fields (pronouns, gender, orientation, T4T preference) are first-class schema entities, surfaced prominently in UI, never bolted-on. **Built with, not for** means paid trans advisors are release-gate reviewers — the build process has human review steps, not just automated checks. **Architecturally hostile to fetishization** means the messaging system cannot produce generic openers: every conversation opener is a `Like` entity with a required `comment` field tied to a specific `ProfilePrompt` or `Photo`. These are systems-level commitments, not feature flags.
+Three stacked technical commitments drive the differentiation. **Community-first by design** means identity fields (pronouns, gender, orientation, T4T preference) are first-class schema entities, surfaced prominently in UI, never bolted-on. **Built with the community** means paid trans advisors are release-gate reviewers — the build process has human review steps, not just automated checks. **Architecturally hostile to fetishization** means the messaging system cannot produce generic openers: every conversation opener is a `Like` entity with a required `comment` field tied to a specific `ProfilePrompt` or `Photo`. These are systems-level commitments, not feature flags.
 
 ### Magic Moment
 
@@ -20,7 +20,7 @@ Three magic moments layered together (per vision doc):
 
 1. **First real conversation** (trans user): A user receives a like-with-comment that engages a specific prompt answer — not their body. This requires the prompt-like-comment mechanic to work seamlessly and for there to be enough active density in the user's city to produce a real conversation within their first 48 hours.
 2. **Scroll that feels like home** (any core user): First app-open experience shows profiles that are majority-trans in the user's city. Requires city-gated rollout so density is real before launch.
-3. **Respect pledge** (cis user): Cis user goes through a 2–3 minute extended respect flow as part of onboarding, completes a meaningful pledge, and enters the app with clear guest framing. Requires high-quality pledge copy and reliable pledge-gating of interaction surfaces.
+3. **Respect pledge** (cis user): Cis user goes through a 2–3 minute extended respect flow as part of onboarding, completes a meaningful pledge covering pronouns, consent, and fetishization, and enters the app ready to show up well. Requires high-quality pledge copy and reliable pledge-gating of interaction surfaces.
 
 ### Success Criteria
 
@@ -827,7 +827,7 @@ As a **trans user**, I want a warm, short acknowledgment of community norms so t
 
 **US-004: Complete extended respect pledge (cis user)**
 As a **cis man (respectful partner)**, I want to understand exactly what's expected of me so that I show up the right way.
-- Given I marked myself as cis, when I reach the pledge, then I see the extended version (5 screens covering pronouns, consent, fetishization, guest-framing, consequences).
+- Given I marked myself as cis, when I reach the pledge, then I see the extended version (5 screens covering pronouns, consent, fetishization, mutual respect, consequences).
 - Each screen must be read for at least 5 seconds before "Next" enables.
 - Final screen requires typing "I agree" in a field before submit.
 - Given completion, then `extendedPledgeCompletedAt` is set.
@@ -965,7 +965,7 @@ Related: US-003
 
 **FR-005: Extended respect pledge (cis users)**
 Priority: P0
-Description: Users marked as cis see a 5-screen extended pledge covering pronouns, consent, fetishization, guest-framing, and consequences. Each screen must be displayed for ≥5 seconds before "Next" enables. Final screen requires typing "I agree."
+Description: Users marked as cis see a 5-screen extended pledge covering pronouns, consent, fetishization, mutual respect, and consequences. Each screen must be displayed for ≥5 seconds before "Next" enables. Final screen requires typing "I agree."
 Acceptance: Cis users cannot complete onboarding without the extended pledge. Copy reviewed and approved by trans advisors.
 Related: US-004
 
@@ -1275,7 +1275,7 @@ Layout: Five sequential screens (horizontal swipe or button-driven) with:
 1. Pronouns — why they matter, examples.
 2. Consent — what it means online and off.
 3. Fetishization — what it looks like, why it's harmful, examples.
-4. Guest framing — you're welcome, you're not the main character.
+4. Mutual respect — you're here to connect, not to make anyone a spectacle.
 5. Consequences — what happens when you violate norms.
 
 Each screen has a 5-second minimum display before "Next" enables (unobtrusive micro-indicator). Final screen: typed "I agree" + tap "Submit pledge."

@@ -30,7 +30,7 @@ import { internal } from './_generated/api';
  *   PERSONA_TEMPLATE_ID        — template id for "Government ID + Selfie"
  *   PERSONA_ENV                — "sandbox" | "production"
  *   PERSONA_REDIRECT_URL       — deep-link the inquiry redirects to on
- *                                completion. We use amoura://verify-id-return
+ *                                completion. We use amia://verify-id-return
  *                                so expo-web-browser dismissAuthSession()
  *                                fires.
  *
@@ -99,7 +99,7 @@ export const startId = action({
   handler: async (ctx): Promise<{ inquiryId: string; url: string }> => {
     const apiKey = process.env.PERSONA_API_KEY;
     const templateId = process.env.PERSONA_TEMPLATE_ID;
-    const redirectUri = process.env.PERSONA_REDIRECT_URL ?? 'amoura://verify-id-return';
+    const redirectUri = process.env.PERSONA_REDIRECT_URL ?? 'amia://verify-id-return';
     if (!apiKey || !templateId) {
       throw new Error(
         'ID verification is not configured. Set PERSONA_API_KEY and PERSONA_TEMPLATE_ID via `npx convex env set`.',

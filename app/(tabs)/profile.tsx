@@ -101,6 +101,11 @@ export default function ProfileTab() {
     router.push('/verify-id');
   };
 
+  const goToSubscription = () => {
+    setSheetOpen(false);
+    router.push('/settings/subscription');
+  };
+
   return (
     <View className="flex-1 bg-cream-50">
       <ProfileView
@@ -173,6 +178,13 @@ export default function ProfileTab() {
               <SheetRow label="Edit identity" onPress={() => goToEdit('identity')} />
               <SheetRow label="Change name" onPress={handleChangeName} />
               <SheetRow label="Change city" onPress={handleChangeCity} />
+
+              <SectionHeader label="Account" />
+              <SheetRow
+                label="Subscription"
+                onPress={goToSubscription}
+                hint={me.hasActiveSubscription ? 'Pro' : 'Free'}
+              />
 
               <SectionHeader label="Safety & Privacy" />
               <SheetRow label="Verify your photo" onPress={goToVerifyPhoto} />

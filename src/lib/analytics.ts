@@ -49,6 +49,22 @@ export const AnalyticsEvents = {
   VERIFICATION_APPROVED: 'verification_approved',
   VERIFICATION_REJECTED: 'verification_rejected',
   VERIFICATION_DISMISSED: 'verification_dismissed',
+  // Phase 6 — Subscription / paywall. The conversion funnel is:
+  //   paywall_viewed { trigger } → checkout_started { product, period }
+  //     → purchase_completed { product, price, period }
+  // Restore is a side-funnel from Manage Subscription / Paywall:
+  //   purchase_restored { trigger }
+  // Cancellations fire from the Convex `subscriptions` query when
+  // `willRenew` flips false on a previously-active row — client-side
+  // (not webhook-side) so we don't need posthog-node in Convex. The
+  // event lands on the device after the next foreground reactive
+  // refresh, which is good enough for retention analysis.
+  PAYWALL_VIEWED: 'paywall_viewed',
+  PAYWALL_DISMISSED: 'paywall_dismissed',
+  CHECKOUT_STARTED: 'checkout_started',
+  PURCHASE_COMPLETED: 'purchase_completed',
+  PURCHASE_RESTORED: 'purchase_restored',
+  SUBSCRIPTION_CANCELED: 'subscription_canceled',
 } as const;
 
 export type AnalyticsEvent = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

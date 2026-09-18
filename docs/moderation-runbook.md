@@ -1,6 +1,6 @@
 # Moderation Runbook
 
-> Phase 5 launch-window operations guide for moderating Amoura via the
+> Phase 5 launch-window operations guide for moderating Amia via the
 > Convex dashboard. Phase 6 will replace this manual workflow with a
 > dedicated Next.js admin UI; until then, this runbook is the source of
 > truth for how a moderator picks up reports, takes action, and closes
@@ -143,7 +143,7 @@ a friendly "verification is taking a beat" rejection.
    npx convex env set PERSONA_TEMPLATE_ID itmpl_...
    npx convex env set PERSONA_WEBHOOK_SECRET <webhook-secret>
    npx convex env set PERSONA_ENV sandbox
-   npx convex env set PERSONA_REDIRECT_URL amoura://verify-id-return
+   npx convex env set PERSONA_REDIRECT_URL amia://verify-id-return
    ```
 6. Test sandbox flow on a dev build; flip `PERSONA_ENV` to
    `production` and rotate `PERSONA_API_KEY` for launch.

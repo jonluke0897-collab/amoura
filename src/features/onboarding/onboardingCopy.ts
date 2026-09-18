@@ -2,7 +2,7 @@
 // section labels, CTAs. Isolated in this file so the review diff is small.
 
 export const SIGN_IN = {
-  brand: 'Amoura',
+  brand: 'Amia',
   heading: "You're welcome here.",
   subhead: 'Sign in or create an account — we\u2019ll take you through a short setup next.',
   appleCta: 'Continue with Apple',
@@ -75,7 +75,7 @@ export const PHOTOS_SCREEN = {
   saveCta: 'Save',
   permissionDeniedTitle: 'Photo access is off',
   permissionDeniedBody:
-    'To add photos, turn on photo access for Amoura in your device settings.',
+    'To add photos, turn on photo access for Amia in your device settings.',
   uploadFailedTitle: 'Upload failed',
   uploadFailedBody: "Couldn't upload that one — try picking it again.",
   removeFailedTitle: 'Remove failed',

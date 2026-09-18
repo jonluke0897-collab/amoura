@@ -136,8 +136,8 @@ export const mySubmissions = query({
       context: r.context ?? null,
       // Moderator notes are intentionally surfaced to the reporter — a
       // reviewer's "we removed this user" or "no action taken, here's why"
-      // closes the loop and is part of the trans-first commitment to
-      // visibility about how reports are handled.
+      // closes the loop and is part of the commitment to visibility
+      // about how reports are handled.
       moderatorNotes: r.moderatorNotes ?? null,
       createdAt: r.createdAt,
       resolvedAt: r.resolvedAt ?? null,

@@ -4,7 +4,7 @@ Context for future Claude Code sessions in this repo. This file is read automati
 
 ## What this is
 
-**Amoura** — a trans-first mobile dating app. Full spec in `docs/`:
+**Amia** — a modern dating app for trans women and the people who want to date them. (Rebranded from *Amoura*; repositioned away from the old "trans-first / built by and for trans women" framing to a warmer, audience-owned one — tagline *"Where attraction is mutual."* See `docs/product-vision.md § 4`.) Full spec in `docs/`:
 - [`docs/product-vision.md`](docs/product-vision.md) — strategy, brand, user research
 - [`docs/prd.md`](docs/prd.md) — technical spec, schema, API, UI
 - [`docs/product-roadmap.md`](docs/product-roadmap.md) — 100 tasks across 8 phases; **checkboxes are the source of truth for what's done**
@@ -41,9 +41,10 @@ Things that will silently break the build if changed. Preserve them.
 
 ## Brand / design decisions that diverge from the docs
 
-- **Palette is logo-derived, not vision-doc-derived.** `docs/product-vision.md § 5` specifies a warm plum/cream palette. Jon-Luke chose to override with the logo's cool violet/magenta/coral gradient. `tailwind.config.js` has a comment at the top documenting this. Logo source: `assets/IconOnly_Transparent_NoBuffer.png` (icon) and `assets/FullLogo_Transparent_NoBuffer.png` (wordmark). Splash + adaptive-icon `backgroundColor` is `#FAFAFF` (pale lavender).
-- **Icons are Lucide, not Phosphor.** `docs/product-vision.md § 5` says Phosphor; the roadmap and implementation use `lucide-react-native`. Close enough vibe-wise. Flag for polish if a Phase 7 brand review wants it swapped.
+- **Palette is logo-derived.** The cool violet/magenta/coral gradient in `tailwind.config.js` is the brand palette; `docs/product-vision.md § 5` now documents it directly (it originally specified a warm plum/cream palette, long since overridden). Logo source: `assets/IconOnly_Transparent_NoBuffer.png` (icon) and `assets/FullLogo_Transparent_NoBuffer.png` (wordmark). Splash + adaptive-icon `backgroundColor` is `#FAFAFF` (pale lavender).
+- **Icons are Lucide** (`lucide-react-native`). `docs/product-vision.md § 5` documents this (it originally said Phosphor).
 - **Sign-in buttons are placeholders.** `app/(auth)/sign-in.tsx` routes directly to `/(tabs)/browse` without invoking Clerk OAuth. Real OAuth lands in Phase 1 TASK-017.
+- **Rebranded Amoura → Amia.** Display name, `slug`/`scheme` (`amia`), and bundle id (`com.amiadating.app`) are updated in `app.config.ts`; deep links are now `amia://` and all user-facing copy says "Amia." Brand handle is **@amiadating** and the domain is **amiadating.com** (paywall terms/privacy URLs point there; docs + marketing use them too — secure the domain and handles before launch). Deliberately left on old identifiers (rename only when you own the new store products): the `amoura_pro_*` store SKUs, the GitHub slug `jonluke0897-collab/amoura`, the repo folder, the `AMOURA_SHARED_TOKEN` env var, and the service instances (Convex/Clerk/PostHog/OneSignal). External follow-ups before deep links work end-to-end: add `amia://` to the Clerk OAuth redirect allowlist and set `PERSONA_REDIRECT_URL=amia://verify-id-return` in Convex env; the scheme/bundle change needs a native rebuild.
 
 ## Services & identifiers
 
@@ -65,7 +66,7 @@ Per [product-roadmap.md TASK-025](docs/product-roadmap.md) and the product princ
 
 > **No phase that touches user-facing copy ships without written sign-off from at least one paid trans advisor.**
 
-This applies to: onboarding copy, identity field options, respect pledge (both versions), prompt library, error/empty states, paywall copy, moderation messages, and all marketing. Placeholder prompts in `convex/seed.ts` are tagged `createdBy: "amoura-placeholder"` for easy identification and swap-out.
+This applies to: onboarding copy, identity field options, respect pledge (both versions), prompt library, error/empty states, paywall copy, moderation messages, and all marketing. Placeholder prompts in `convex/seed.ts` are tagged `createdBy: "amia-placeholder"` for easy identification and swap-out.
 
 ## Git + identity
 

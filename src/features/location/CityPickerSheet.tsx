@@ -78,7 +78,7 @@ export function CityPickerSheet({
             </Pressable>
           </View>
           <Text variant="body" className="px-5 pb-3 text-plum-600 text-base">
-            Amoura shows you people nearby. We store your city name only — never
+            Amia shows you people nearby. We store your city name only — never
             your exact location.
           </Text>
         </>

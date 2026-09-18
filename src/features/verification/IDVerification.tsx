@@ -161,7 +161,7 @@ export function IDVerification() {
         url,
         // The redirect URL Persona sends the browser back to. Set
         // PERSONA_REDIRECT_URL on the server to match this scheme.
-        'amoura://verify-id-return',
+        'amia://verify-id-return',
       );
       if (result.type === 'cancel' || result.type === 'dismiss') {
         // User closed the browser before completing. Don't increment
@@ -263,12 +263,12 @@ export function IDVerification() {
         </Text>
         <Text variant="caption" className="text-xs text-plum-400 mb-6 text-center">
           Your ID is checked by our verification partner and never shown to
-          anyone else on Amoura.
+          anyone else on Amia.
         </Text>
         {!dismissable && (
           <View className="rounded-md bg-plum-50 border border-plum-100 p-3 mb-6">
             <Text variant="body" className="text-sm text-plum-900 text-center">
-              You’ve postponed this twice. To keep using Amoura, please verify
+              You’ve postponed this twice. To keep using Amia, please verify
               before continuing.
             </Text>
           </View>
